@@ -1,4 +1,4 @@
-baseURL = "https://letnh.com"
+baseURL = "https://blog.letnh.com"
 title = "LETNH - Blog"
 theme = "etch"
 languageCode = "en-US"
