@@ -1,0 +1,105 @@
+<!doctype html><html><head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="LETNH Tech blog">
+<link rel="shortcut icon" href=https://blog.letnh.com/favicon.ico>
+<link rel=stylesheet href=/css/style.min.css>
+<title>What Is Continuous Integration?</title>
+</head>
+<body><header id=banner>
+<h2><a href=https://blog.letnh.com>LETNH - Blog</a></h2>
+<nav>
+<ul>
+<li>
+<a href=/ title=posts>posts</a>
+</li>
+</ul>
+</nav>
+</header>
+<main id=content>
+<article>
+<header id=post-header>
+<h1>What Is Continuous Integration?</h1>
+<div>
+<time>September 9, 2021</time>
+</div>
+</header><p>Continuous Integration (CI) is a term you might have heard sometimes, but wonder what it is and how you can use it to automate your workflow. CI is a process of automating code workflows, such as build, and testing.</p>
+<h2 id=why--what>Why & What?</h2>
+<p>CI is popular for almost any project regardless the size of it. Instead of building or testing your code manually. It can be triggerd on commits to specific branch in your version control. This can result in a workflow that is stanardilized, cleaner code, but also save time and money for developers and organisations.</p>
+<p>A typical CI workflow is:</p>
+<pre tabindex=0><code>                                       / success -&gt; contiune to next step (CD most times)
+           / success -&gt; build project -              
+run tests -                            \ fail -&gt; show report to maintainer and stop
+           \ fail -&gt; show report to maitainer and stop.             
+
+</code></pre><h2 id=how-to-implement-a-ci-pipeline-with-jenskins>How to implement a CI pipeline with Jenskins.</h2>
+<p>To get started with jenkins, you need to either have a selfhosted jenkins instace or buy one. Jenkins is&rsquo;t that complex to setup, I would argue that github actions, Azure Devops Circle CI is more complex.
+But in my examle we will build a simple golang project that just prints hello world.</p>
+<h3 id=code>Code:</h3>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kn>package</span> <span class=nx>main</span>
+
+<span class=kn>import</span> <span class=s>&#34;fmt&#34;</span>
+
+<span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+    <span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=s>&#34;Hello World&#34;</span><span class=p>)</span>
+<span class=p>}</span>
+</code></pre></div><h3 id=jenkins-pipeline>Jenkins pipeline:</h3>
+<pre tabindex=0><code>pipeline {
+  agent any
+    stages {
+        stage('Test') {
+            steps {
+                sh 'go test ./... -coverprofile=coverage.txt'
+            }
+        }
+        stage('Compile') {
+            steps {
+                sh 'go build'
+            }
+        }
+        stage('Release') {
+            when {
+                buildingTag()
+            }
+            environment {
+                GITHUB_TOKEN = credentials('github_token')
+            }
+            steps {
+                sh 'curl -sL https://git.io/goreleaser | bash'
+            }
+        }
+    }
+}
+</code></pre><h2 id=what-is-all-these-steps>What is all these steps?</h2>
+<p>You might now wonder what is this pipeline doing?
+So first we test the code:</p>
+<pre tabindex=0><code>stage('Test') {
+  steps {
+    sh 'go test ./...'
+  }
+}
+</code></pre><p>Then we build the code:</p>
+<pre tabindex=0><code>stage('Compile') {
+    steps {
+        sh 'go build'
+    }
+}
+</code></pre><p>Lastly we release the binary with goreleaser:</p>
+<pre tabindex=0><code>stage('Release') {
+    when {
+        buildingTag()
+    }
+    environment {
+        GITHUB_TOKEN = credentials('github_token')
+    }
+    steps {
+        sh 'curl -sL https://git.io/goreleaser | bash'
+    }
+}
+</code></pre><p>So when you next time push/merges something to main branch the binary will be released.</p>
+</article>
+</main><footer id=footer>
+Copyright © 2020 letnh
+</footer>
+</body>
+</html>
