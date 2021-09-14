@@ -27,12 +27,12 @@
 <h2 id=why--what>Why & What?</h2>
 <p>CI is popular for almost any project regardless the size of it. Instead of building or testing your code manually. It can be triggerd on commits to specific branch in your version control. This can result in a workflow that is stanardilized, cleaner code, but also save time and money for developers and organisations.</p>
 <p>A typical CI workflow is:</p>
-<pre tabindex=0><code>                                       / success -&gt; contiune to next step (CD most times)
-           / success -&gt; build project -              
-run tests -                            \ fail -&gt; show report to maintainer and stop
-           \ fail -&gt; show report to maitainer and stop.             
-
-</code></pre><h2 id=how-to-implement-a-ci-pipeline-with-jenskins>How to implement a CI pipeline with Jenskins.</h2>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-yml data-lang=yml><span class=w>                                       </span><span class=l>/ success -&gt; contiune to next step (CD most times)</span><span class=w>
+</span><span class=w>           </span><span class=l>/ success -&gt; build project -              </span><span class=w>
+</span><span class=w></span><span class=l>run tests -                            \ fail -&gt; show report to maintainer and stop</span><span class=w>
+</span><span class=w>           </span><span class=l>\ fail -&gt; show report to maitainer and stop.             </span><span class=w>
+</span><span class=w>
+</span></code></pre></div><h2 id=how-to-implement-a-ci-pipeline-with-jenskins>How to implement a CI pipeline with Jenskins.</h2>
 <p>To get started with jenkins, you need to either have a selfhosted jenkins instace or buy one. Jenkins is&rsquo;t that complex to setup, I would argue that github actions, Azure Devops Circle CI is more complex.
 But in my examle we will build a simple golang project that just prints hello world.</p>
 <h3 id=code>Code:</h3>
@@ -44,59 +44,59 @@ But in my examle we will build a simple golang project that just prints hello wo
     <span class=nx>fmt</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=s>&#34;Hello World&#34;</span><span class=p>)</span>
 <span class=p>}</span>
 </code></pre></div><h3 id=jenkins-pipeline>Jenkins pipeline:</h3>
-<pre tabindex=0><code>pipeline {
-  agent any
-    stages {
-        stage('Test') {
-            steps {
-                sh 'go test ./... -coverprofile=coverage.txt'
-            }
-        }
-        stage('Compile') {
-            steps {
-                sh 'go build'
-            }
-        }
-        stage('Release') {
-            when {
-                buildingTag()
-            }
-            environment {
-                GITHUB_TOKEN = credentials('github_token')
-            }
-            steps {
-                sh 'curl -sL https://git.io/goreleaser | bash'
-            }
-        }
-    }
-}
-</code></pre><h2 id=what-is-all-these-steps>What is all these steps?</h2>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-gradle data-lang=gradle><span class=n>pipeline</span> <span class=o>{</span>
+  <span class=n>agent</span> <span class=n>any</span>
+    <span class=n>stages</span> <span class=o>{</span>
+        <span class=n>stage</span><span class=o>(</span><span class=s1>&#39;Test&#39;</span><span class=o>)</span> <span class=o>{</span>
+            <span class=n>steps</span> <span class=o>{</span>
+                <span class=n>sh</span> <span class=s1>&#39;go test ./... -coverprofile=coverage.txt&#39;</span>
+            <span class=o>}</span>
+        <span class=o>}</span>
+        <span class=n>stage</span><span class=o>(</span><span class=s1>&#39;Compile&#39;</span><span class=o>)</span> <span class=o>{</span>
+            <span class=n>steps</span> <span class=o>{</span>
+                <span class=n>sh</span> <span class=s1>&#39;go build&#39;</span>
+            <span class=o>}</span>
+        <span class=o>}</span>
+        <span class=n>stage</span><span class=o>(</span><span class=s1>&#39;Release&#39;</span><span class=o>)</span> <span class=o>{</span>
+            <span class=n>when</span> <span class=o>{</span>
+                <span class=n>buildingTag</span><span class=o>()</span>
+            <span class=o>}</span>
+            <span class=n>environment</span> <span class=o>{</span>
+                <span class=n>GITHUB_TOKEN</span> <span class=o>=</span> <span class=n>credentials</span><span class=o>(</span><span class=s1>&#39;github_token&#39;</span><span class=o>)</span>
+            <span class=o>}</span>
+            <span class=n>steps</span> <span class=o>{</span>
+                <span class=n>sh</span> <span class=s1>&#39;curl -sL https://git.io/goreleaser | bash&#39;</span>
+            <span class=o>}</span>
+        <span class=o>}</span>
+    <span class=o>}</span>
+<span class=o>}</span>
+</code></pre></div><h2 id=what-is-all-these-steps>What is all these steps?</h2>
 <p>You might now wonder what is this pipeline doing?
 So first we test the code:</p>
-<pre tabindex=0><code>stage('Test') {
-  steps {
-    sh 'go test ./...'
-  }
-}
-</code></pre><p>Then we build the code:</p>
-<pre tabindex=0><code>stage('Compile') {
-    steps {
-        sh 'go build'
-    }
-}
-</code></pre><p>Lastly we release the binary with goreleaser:</p>
-<pre tabindex=0><code>stage('Release') {
-    when {
-        buildingTag()
-    }
-    environment {
-        GITHUB_TOKEN = credentials('github_token')
-    }
-    steps {
-        sh 'curl -sL https://git.io/goreleaser | bash'
-    }
-}
-</code></pre><p>So when you next time push/merges something to main branch the binary will be released.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-gradle data-lang=gradle><span class=n>stage</span><span class=o>(</span><span class=s1>&#39;Test&#39;</span><span class=o>)</span> <span class=o>{</span>
+  <span class=n>steps</span> <span class=o>{</span>
+    <span class=n>sh</span> <span class=s1>&#39;go test ./...&#39;</span>
+  <span class=o>}</span>
+<span class=o>}</span>
+</code></pre></div><p>Then we build the code:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-gradle data-lang=gradle><span class=n>stage</span><span class=o>(</span><span class=s1>&#39;Compile&#39;</span><span class=o>)</span> <span class=o>{</span>
+    <span class=n>steps</span> <span class=o>{</span>
+        <span class=n>sh</span> <span class=s1>&#39;go build&#39;</span>
+    <span class=o>}</span>
+<span class=o>}</span>
+</code></pre></div><p>Lastly we release the binary with goreleaser:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-gradle data-lang=gradle><span class=n>stage</span><span class=o>(</span><span class=s1>&#39;Release&#39;</span><span class=o>)</span> <span class=o>{</span>
+    <span class=n>when</span> <span class=o>{</span>
+        <span class=n>buildingTag</span><span class=o>()</span>
+    <span class=o>}</span>
+    <span class=n>environment</span> <span class=o>{</span>
+        <span class=n>GITHUB_TOKEN</span> <span class=o>=</span> <span class=n>credentials</span><span class=o>(</span><span class=s1>&#39;github_token&#39;</span><span class=o>)</span>
+    <span class=o>}</span>
+    <span class=n>steps</span> <span class=o>{</span>
+        <span class=n>sh</span> <span class=s1>&#39;curl -sL https://git.io/goreleaser | bash&#39;</span>
+    <span class=o>}</span>
+<span class=o>}</span>
+</code></pre></div><p>So when you next time push/merges something to main branch the binary will be released.</p>
 </article>
 </main><footer id=footer>
 Copyright © 2020 letnh
