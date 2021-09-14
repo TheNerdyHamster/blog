@@ -24,7 +24,7 @@ Continuous Integration (CI) is a term you might have heard sometimes, but wonder
 CI is popular for almost any project regardless the size of it. Instead of building or testing your code manually. It can be triggerd on commits to specific branch in your version control. This can result in a workflow that is stanardilized, cleaner code, but also save time and money for developers and organisations.
 
 A typical CI workflow is:
-```
+```yml
                                        / success -> contiune to next step (CD most times)
            / success -> build project -              
 run tests -                            \ fail -> show report to maintainer and stop
@@ -47,7 +47,7 @@ func main() {
 }
 ```
 ### Jenkins pipeline:
-```
+```gradle
 pipeline {
   agent any
     stages {
@@ -79,7 +79,7 @@ pipeline {
 ## What is all these steps?
 You might now wonder what is this pipeline doing? 
 So first we test the code:
-```
+```gradle
 stage('Test') {
   steps {
     sh 'go test ./...'
@@ -87,7 +87,7 @@ stage('Test') {
 }
 ```
 Then we build the code:
-```
+```gradle
 stage('Compile') {
     steps {
         sh 'go build'
@@ -95,7 +95,7 @@ stage('Compile') {
 }
 ```
 Lastly we release the binary with goreleaser:
-```
+```gradle
 stage('Release') {
     when {
         buildingTag()
