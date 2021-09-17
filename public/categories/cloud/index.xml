@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>cloud on LETNH - Blog</title>
+    <link>https://blog.letnh.com/categories/cloud/</link>
+    <description>Recent content in cloud on LETNH - Blog</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-US</language>
+    <lastBuildDate>Tue, 14 Sep 2021 19:39:56 +0200</lastBuildDate>
+    
+	<atom:link href="https://blog.letnh.com/categories/cloud/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    
+    <item>
+      <title>Docker Build Ci</title>
+      <link>https://blog.letnh.com/docker-build-ci/</link>
+      <pubDate>Tue, 14 Sep 2021 19:39:56 +0200</pubDate>
+      
+      <guid>https://blog.letnh.com/docker-build-ci/</guid>
+      <description>Currently the industry is moving towards containerization and orchestration more. Which has it pros and cons which we wont cover today. But today we will cover how to automate your image build process with Jenkins, and push it to Docker Hub.
+You can either use your own docker image, or use this example repo, which is a simple Go web application that writes out the container ip address to the user.</description>
+    </item>
+    
+    
+    
+    <item>
+      <title>What Is Continuous Integration?</title>
+      <link>https://blog.letnh.com/what-is-continuous-integration/</link>
+      <pubDate>Thu, 09 Sep 2021 10:12:41 +0200</pubDate>
+      
+      <guid>https://blog.letnh.com/what-is-continuous-integration/</guid>
+      <description>Continuous Integration (CI) is a term you might have heard sometimes, but wonder what it is and how you can use it to automate your workflow. CI is a process of automating code workflows, such as build, and testing.
+Why &amp;amp; What? CI is popular for almost any project regardless the size of it. Instead of building or testing your code manually. It can be triggerd on commits to specific branch in your version control.</description>
+    </item>
+    
+    
+    
+    <item>
+      <title>What is the cloud? Is it the right thing for you?</title>
+      <link>https://blog.letnh.com/what-is-the-cloud-is-it-the-right-thing-for-you/</link>
+      <pubDate>Mon, 06 Sep 2021 10:19:23 +0200</pubDate>
+      
+      <guid>https://blog.letnh.com/what-is-the-cloud-is-it-the-right-thing-for-you/</guid>
+      <description>The cloud can be many things, and it&amp;rsquo;s a big subject. Cloud is often called &amp;ldquo;someone else&amp;rsquo;s computer&amp;rdquo;, which it is to some extent. But today we will discuss the subject cloud a bit and give you a brother understanding of what it is and what the pros and cons are.
+What is the cloud? You might think that the cloud is just one server that someone owns, which isn&amp;rsquo;t true.</description>
+    </item>
+    
+    
+  </channel>
+</rss>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="LETNH Tech blog">
+    
+    <link rel="shortcut icon" href="https://blog.letnh.com/favicon.ico">
+    
+    <link rel="stylesheet" href="/css/style.min.css">
+
+    <title>Docker Build Ci</title>
+</head>
+<body><header id="banner">
+    <h2><a href="https://blog.letnh.com">LETNH - Blog</a></h2>
+    <nav>
+        <ul>
+            <li>
+                <a href="/" title="posts">posts</a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main id="content">
+<article>
+    <header id="post-header">
+        <h1>Docker Build Ci</h1>
+            <div>
+                <time>September 14, 2021</time>
+                </div>
+    </header><p>Currently the industry is moving towards containerization and orchestration more. Which has it pros and cons which we wont cover today. But today we will cover how to automate your image build process with Jenkins, and push it to <a href="https://hub.docker.com">Docker Hub</a>.</p>
+<p>You can either use your own docker image, or use this <a href="https://github.com/TheNerdyHamster/jenkins-docker-build">example repo</a>, which is a simple Go web application that writes out the container ip address to the user.</p>
+<h2 id="what-does-the-dockerfile-look-like">What does the Dockerfile look like?</h2>
+<p>Let&rsquo;s take a look at how we built the docker file to serve a simple Go web application.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-Dockerfile" data-lang="Dockerfile"><span class="k">FROM</span><span class="s"> golang:1.15-alpine AS builder</span><span class="err">
+</span><span class="err"></span><span class="k">WORKDIR</span><span class="s"> /app</span><span class="err">
+</span><span class="err"></span><span class="k">COPY</span> src/ /app<span class="err">
+</span><span class="err"></span><span class="k">RUN</span> <span class="nv">CGO_ENABLED</span><span class="o">=</span><span class="m">0</span> go build -o /bin/app<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="k">FROM</span><span class="s"> scratch</span><span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="k">LABEL</span> maintainer leo@letnh.com<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="k">COPY</span> --from<span class="o">=</span>builder /bin/app /bin/app<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="k">EXPOSE</span><span class="s"> 8080</span><span class="err">
+</span><span class="err"></span><span class="k">CMD</span> <span class="p">[</span><span class="s2">&#34;/bin/app&#34;</span><span class="p">]</span><span class="err">
+</span></code></pre></div><p>This image exists of a multistage build to bring down the image size. If we build the image with <code>golang:1.15-alpine</code> image, we get around <em>~318MB</em>, which is alot for being a simple web application, but if we use the <code>scratch</code> image and only copy over the binary we get a image around <em>~6.39MB</em>, which is alot better and smaller.</p>
+<p><em>You might now wonder, why do we want a smaller image?</em><br>
+First of, we save time when deploying, but less packages on a image means that we dont need to worry, what are getting exposed or if we have something that can be vulnarble and breach our application.</p>
+<h2 id="what-does-the-pipeline-do">What does the pipeline do?</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gradle" data-lang="gradle"><span class="n">pipeline</span> <span class="o">{</span>
+  <span class="n">environment</span> <span class="o">{</span>
+      <span class="n">imageName</span> <span class="o">=</span> <span class="s2">&#34;thenerdyhamster/demo-pipeline&#34;</span>
+      <span class="n">registryCredentials</span> <span class="o">=</span> <span class="s2">&#34;docker-hub-credentials&#34;</span>
+      <span class="n">dockerImage</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+  <span class="o">}</span>
+  <span class="n">agent</span> <span class="n">any</span>
+  <span class="n">stages</span> <span class="o">{</span>
+    <span class="n">stage</span><span class="o">(</span><span class="s2">&#34;Build image&#34;</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">steps</span> <span class="o">{</span>
+        <span class="n">script</span> <span class="o">{</span>
+          <span class="n">dockerImage</span> <span class="o">=</span> <span class="n">docker</span><span class="o">.</span><span class="na">build</span> <span class="n">imageName</span>
+        <span class="o">}</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="n">stage</span><span class="o">(</span><span class="s2">&#34;Push image&#34;</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">steps</span> <span class="o">{</span>
+        <span class="n">script</span> <span class="o">{</span>
+          <span class="n">docker</span><span class="o">.</span><span class="na">withRegistry</span><span class="o">(</span><span class="s1">&#39;&#39;</span><span class="o">,</span> <span class="n">registryCredentials</span><span class="o">)</span> <span class="o">{</span>
+              <span class="n">dockerImage</span><span class="o">.</span><span class="na">push</span><span class="o">(</span><span class="s1">&#39;$BUILD_NUMBER&#39;</span><span class="o">)</span>
+              <span class="n">dockerImage</span><span class="o">.</span><span class="na">push</span><span class="o">(</span><span class="s1">&#39;latest&#39;</span><span class="o">)</span>
+          <span class="o">}</span>
+        <span class="o">}</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="n">stage</span><span class="o">(</span><span class="s2">&#34;Clean up build&#34;</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">steps</span> <span class="o">{</span>
+        <span class="n">script</span> <span class="o">{</span>
+          <span class="n">sh</span> <span class="s2">&#34;docker rmi $imageName:$BUILD_NUMBER&#34;</span>
+          <span class="n">sh</span> <span class="s2">&#34;docker rmi $imageName:latest&#34;</span>
+        <span class="o">}</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+
+</code></pre></div><p>The pipeline exists of 3 steps.</p>
+<ul>
+<li>Build</li>
+<li>Push</li>
+<li>Clean up</li>
+</ul>
+<h3 id="build">Build</h3>
+<p>During the build step we specify that we want to run <code>docker.build</code> with <code>imageName</code> which then returns image name to be used later in the clean up step.</p>
+<h3 id="push-image">Push image</h3>
+<p>So we take the image built within last step, and push it to <a href="https://hub.docker.com">Docker Hub</a>, which is the default registry. But we can specify registry with in the first parameter when calling <code>docker.withRegistry</code>, then we push the image tagged with <code>$BUILD_NUMBER</code> and latest, so we can utilize older versions if needed.</p>
+<h3 id="clean-up">Clean up</h3>
+<p>We are now done with the build of the image, and it&rsquo;s pushed to specify registry.</p>
+<h2 id="how-do-we-implement-one">How do we implement one?</h2>
+<p>Now you wonder, how to do I implement this pipeline?<br>
+It&rsquo;s not that hard, first you will need a <a href="https://jenkins.io">Jenkins</a> instace, either selfhosted or bought by a provider.
+When you have Jenkins setup, you can follow the steps bellow.</p>
+<ol>
+<li>Goto <strong>Dashboard</strong> -&gt; <strong>New Item</strong>.</li>
+<li>Give it a <strong>Name</strong> and choose pipline then <strong>Ok</strong>.</li>
+<li>Goto *<em>Build triggers</em> and choose <em><strong>GitHub hook trigger for GITScm polling</strong></em></li>
+<li>Choose <strong>Pipeline Definition</strong> to be <strong>Pipeline script from SCM</strong> -&gt; <strong>SCM</strong> to be <strong>GIT</strong> and paste your repo url.</li>
+<li>Under <strong>Credentials</strong> press <strong>add</strong> and choose following:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yml" data-lang="yml"><span class="nt">Domain</span><span class="p">:</span><span class="w"> </span><span class="l">Global</span><span class="w">
+</span><span class="w"></span><span class="nt">Kind</span><span class="p">:</span><span class="w"> </span><span class="l">SSH Username with private key</span><span class="w">
+</span><span class="w"></span><span class="nt">Scope</span><span class="p">:</span><span class="w"> </span><span class="l">Global</span><span class="w">
+</span><span class="w"></span><span class="nt">ID</span><span class="p">:</span><span class="w"> </span><span class="l">git</span><span class="w">
+</span><span class="w"></span><span class="nt">Username</span><span class="p">:</span><span class="w"> </span><span class="l">git</span><span class="w">
+</span><span class="w"></span><span class="nt">Enter directly</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="w">
+</span><span class="w"></span><span class="nt">Key</span><span class="p">:</span><span class="w"> </span><span class="l">Add private key</span><span class="w">
+</span><span class="w"></span><span class="nt">Passphrase</span><span class="p">:</span><span class="w"> </span><span class="l">private key passphrase</span><span class="w">
+</span></code></pre></div><ol start="6">
+<li>Add another set of credentials with the following options:</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yml" data-lang="yml"><span class="nt">Domain</span><span class="p">:</span><span class="w"> </span><span class="l">Global</span><span class="w">
+</span><span class="w"></span><span class="nt">Kind</span><span class="p">:</span><span class="w"> </span><span class="l">Username with password</span><span class="w">
+</span><span class="w"></span><span class="nt">Scope</span><span class="p">:</span><span class="w"> </span><span class="l">Global</span><span class="w">
+</span><span class="w"></span><span class="nt">ID</span><span class="p">:</span><span class="w"> </span><span class="l">docker-hub-credentials</span><span class="w">
+</span><span class="w"></span><span class="nt">Username</span><span class="p">:</span><span class="w"> </span><span class="l">docker-hub-username</span><span class="w">
+</span><span class="w"></span><span class="nt">Passphrase</span><span class="p">:</span><span class="w"> </span><span class="l">Password from docker hub.</span><span class="w">
+</span></code></pre></div><ol start="7">
+<li>Choose <strong>git</strong> under credentials and then press <strong>Save</strong></li>
+<li>Goto your repo settings and then <strong>Webhooks</strong> add:</li>
+</ol>
+<ul>
+<li>Payload URL: <code>https://&lt;domain&gt;/github-webhook/</code></li>
+<li>Content Type: <code>application/json</code></li>
+<li>Which events: <code>Just the push event</code></li>
+</ul>
+<ol start="9">
+<li>Add the Jenkins file as specifed above to your repo under <code>Jenkinsfile</code></li>
+</ol>
+<p>If you followed these steps, next time you push a build will be triggerd and build + push the image to docker hub.</p>
+</article>
+
+        </main><footer id="footer">
+    Copyright © 2020 letnh
+</footer>
+</body>
+</html>
