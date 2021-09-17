@@ -1,0 +1,163 @@
+<!doctype html><html><head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="LETNH Tech blog">
+<link rel="shortcut icon" href=https://blog.letnh.com/favicon.ico>
+<link rel=stylesheet href=/css/style.min.css>
+<title>Serverless Functions With Jenkins</title>
+</head>
+<body><header id=banner>
+<h2><a href=https://blog.letnh.com>LETNH - Blog</a></h2>
+<nav>
+<ul>
+<li>
+<a href=/ title=posts>posts</a>
+</li>
+</ul>
+</nav>
+</header>
+<main id=content>
+<article>
+<header id=post-header>
+<h1>Serverless Functions With Jenkins</h1>
+<div>
+<time>September 17, 2021</time>
+</div>
+</header><h2 id=what-is-serverless-and-faas>What is Serverless and FaaS?</h2>
+<p>FaaS or Functions as a service is just a subset of serverless.<br>
+Serverless is focused on both compute, messaging, gateways, databases, and of course functions. Instead of setting up your own, message broker and then write a service that listens on it, you could just write a function and deploy it to Azure, IBM, or AWS, etc.<br>
+When you are using FaaS you can choose when the function should trigger, if it&rsquo;s on an HTTP request, message, timer, etc. This means that your code only executes on the &ldquo;serverless&rdquo; server when it&rsquo;s getting triggered. Most of today&rsquo;s cloud providers that offer FaaS only bills your per request, which means if you get 1 Million requests one month and two another, the bill will be adjusted. ## The code!</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-py data-lang=py><span class=kn>import</span> <span class=nn>logging</span>
+
+<span class=kn>import</span> <span class=nn>azure.functions</span> <span class=k>as</span> <span class=nn>func</span>
+
+
+<span class=k>def</span> <span class=nf>main</span><span class=p>(</span><span class=n>req</span><span class=p>:</span> <span class=n>func</span><span class=o>.</span><span class=n>HttpRequest</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>func</span><span class=o>.</span><span class=n>HttpResponse</span><span class=p>:</span>
+    <span class=n>logging</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=s1>&#39;Addition function proccessing request.&#39;</span><span class=p>)</span>
+
+    <span class=n>first</span> <span class=o>=</span> <span class=n>parse</span><span class=p>(</span><span class=n>req</span><span class=p>,</span> <span class=s1>&#39;first&#39;</span><span class=p>)</span>
+    <span class=n>second</span> <span class=o>=</span> <span class=n>parse</span><span class=p>(</span><span class=n>req</span><span class=p>,</span> <span class=s1>&#39;second&#39;</span><span class=p>)</span>
+    <span class=nb>print</span><span class=p>(</span><span class=n>second</span><span class=p>)</span>
+    <span class=k>if</span> <span class=p>(</span><span class=n>first</span> <span class=o>==</span> <span class=kc>None</span> <span class=ow>or</span> <span class=n>second</span> <span class=o>==</span> <span class=kc>None</span><span class=p>):</span>
+        <span class=k>return</span> <span class=n>func</span><span class=o>.</span><span class=n>HttpResponse</span><span class=p>(</span>
+                <span class=s2>&#34;How to use!</span><span class=se>\n</span><span class=s2>curl </span><span class=se>\&#34;</span><span class=s2>https://letnh.azurewebsites.net/api/addition?first=</span><span class=si>{int}</span><span class=s2>&amp;second=</span><span class=si>{int}</span><span class=s2> or curl -X POST https://letnh.azurewebsites.net/api/addition -H </span><span class=se>\&#34;</span><span class=s2>Content-Type: application/json</span><span class=se>\&#34;</span><span class=s2> -d &#39;{</span><span class=se>\&#34;</span><span class=s2>first</span><span class=se>\&#34;</span><span class=s2>: </span><span class=si>{num}</span><span class=s2>, </span><span class=se>\&#34;</span><span class=s2>second</span><span class=se>\&#34;</span><span class=s2>: </span><span class=si>{num}</span><span class=s2>}&#39;</span><span class=se>\n</span><span class=s2>&#34;</span><span class=p>,</span>
+            <span class=n>status_code</span><span class=o>=</span><span class=mi>400</span>
+        <span class=p>)</span>
+
+    <span class=k>return</span> <span class=n>func</span><span class=o>.</span><span class=n>HttpResponse</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;Result for </span><span class=si>{</span><span class=n>first</span><span class=si>}</span><span class=s2> + </span><span class=si>{</span><span class=n>second</span><span class=si>}</span><span class=s2> is </span><span class=si>{</span> <span class=p>(</span><span class=n>first</span> <span class=o>+</span> <span class=n>second</span><span class=p>)</span> <span class=si>}</span><span class=s2>!</span><span class=se>\n</span><span class=s2>&#34;</span><span class=p>)</span>
+
+<span class=k>def</span> <span class=nf>parse</span><span class=p>(</span><span class=n>req</span><span class=p>:</span> <span class=n>func</span><span class=o>.</span><span class=n>HttpRequest</span><span class=p>,</span> <span class=n>param</span><span class=p>):</span>
+    <span class=n>value</span> <span class=o>=</span> <span class=n>req</span><span class=o>.</span><span class=n>params</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>param</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>value</span><span class=p>:</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>body</span> <span class=o>=</span> <span class=n>req</span><span class=o>.</span><span class=n>get_json</span><span class=p>()</span>
+        <span class=k>except</span> <span class=ne>ValueError</span><span class=p>:</span>
+            <span class=k>pass</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>value</span> <span class=o>=</span> <span class=n>body</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>param</span><span class=p>)</span>
+    <span class=nb>print</span><span class=p>(</span><span class=n>value</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>safe_cast</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>int</span><span class=p>)</span>
+
+<span class=c1># Function copied from https://stackoverflow.com/a/6330109 author: Artsiom Rudzenka</span>
+<span class=k>def</span> <span class=nf>safe_cast</span><span class=p>(</span><span class=n>val</span><span class=p>,</span> <span class=n>to_type</span><span class=p>,</span> <span class=n>default</span><span class=o>=</span><span class=kc>None</span><span class=p>):</span>
+    <span class=k>try</span><span class=p>:</span>
+        <span class=k>return</span> <span class=n>to_type</span><span class=p>(</span><span class=n>val</span><span class=p>)</span>
+    <span class=k>except</span> <span class=p>(</span><span class=ne>ValueError</span><span class=p>,</span> <span class=ne>TypeError</span><span class=p>):</span>
+        <span class=k>return</span> <span class=n>default</span>
+</code></pre></div><p>The function exists of 3 parts, <code>main</code>, <code>parsing</code>, <code>casting</code>.</p>
+<h3 id=main>Main</h3>
+<p>The main function is where we get the input from the user, and send back the response.
+First of we parse the user input with help of <code>parse()</code> which you can read more about in the next section.<br>
+Then we check if we got valid information within the parameters or body, if the data isn&rsquo;t valid we return a help text to the user and if valid the calculation is shown to the user.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-py data-lang=py><span class=k>def</span> <span class=nf>main</span><span class=p>(</span><span class=n>req</span><span class=p>:</span> <span class=n>func</span><span class=o>.</span><span class=n>HttpRequest</span><span class=p>)</span> <span class=o>-&gt;</span> <span class=n>func</span><span class=o>.</span><span class=n>HttpResponse</span><span class=p>:</span>
+    <span class=n>logging</span><span class=o>.</span><span class=n>info</span><span class=p>(</span><span class=s1>&#39;Addition function processing request.&#39;</span><span class=p>)</span>
+
+    <span class=c1># Parse user input from either body or query.</span>
+    <span class=n>first</span> <span class=o>=</span> <span class=n>parse</span><span class=p>(</span><span class=n>req</span><span class=p>,</span> <span class=s1>&#39;first&#39;</span><span class=p>)</span> 
+    <span class=n>second</span> <span class=o>=</span> <span class=n>parse</span><span class=p>(</span><span class=n>req</span><span class=p>,</span> <span class=s1>&#39;second&#39;</span><span class=p>)</span>
+    <span class=c1># If `first` and `second` can&#39;t be parsed to int, return manual to user.</span>
+    <span class=k>if</span> <span class=p>(</span><span class=n>first</span> <span class=o>==</span> <span class=kc>None</span> <span class=ow>or</span> <span class=n>second</span> <span class=o>==</span> <span class=kc>None</span><span class=p>):</span>
+        <span class=k>return</span> <span class=n>func</span><span class=o>.</span><span class=n>HttpResponse</span><span class=p>(</span>
+                <span class=s2>&#34;How to use!</span><span class=se>\n</span><span class=s2>curl </span><span class=se>\&#34;</span><span class=s2>https://letnh.azurewebsites.net/api/addition?first=</span><span class=si>{int}</span><span class=s2>&amp;second=</span><span class=si>{int}</span><span class=s2> or curl -X POST https://letnh.azurewebsites.net/api/addition -H </span><span class=se>\&#34;</span><span class=s2>Content-Type: application/json</span><span class=se>\&#34;</span><span class=s2> -d &#39;{</span><span class=se>\&#34;</span><span class=s2>first</span><span class=se>\&#34;</span><span class=s2>: </span><span class=si>{num}</span><span class=s2>, </span><span class=se>\&#34;</span><span class=s2>second</span><span class=se>\&#34;</span><span class=s2>: </span><span class=si>{num}</span><span class=s2>}&#39;</span><span class=se>\n</span><span class=s2>&#34;</span><span class=p>,</span>
+            <span class=n>status_code</span><span class=o>=</span><span class=mi>400</span>
+        <span class=p>)</span>
+
+    <span class=k>return</span> <span class=n>func</span><span class=o>.</span><span class=n>HttpResponse</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;Result for </span><span class=si>{</span><span class=n>first</span><span class=si>}</span><span class=s2> + </span><span class=si>{</span><span class=n>second</span><span class=si>}</span><span class=s2> is </span><span class=si>{</span> <span class=p>(</span><span class=n>first</span> <span class=o>+</span> <span class=n>second</span><span class=p>)</span> <span class=si>}</span><span class=s2>!</span><span class=se>\n</span><span class=s2>&#34;</span><span class=p>)</span>
+</code></pre></div><h3 id=parse-request>Parse request</h3>
+<p>When parsing requests we both want to check parameters or body. First, we check if parameters are empty, if they are we check the body for values instead.<br>
+After we have gotten the value, we cast it to an <code>int</code>.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-py data-lang=py><span class=k>def</span> <span class=nf>parse</span><span class=p>(</span><span class=n>req</span><span class=p>:</span> <span class=n>func</span><span class=o>.</span><span class=n>HttpRequest</span><span class=p>,</span> <span class=n>param</span><span class=p>):</span>
+    <span class=n>value</span> <span class=o>=</span> <span class=n>req</span><span class=o>.</span><span class=n>params</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>param</span><span class=p>)</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>value</span><span class=p>:</span>
+        <span class=k>try</span><span class=p>:</span>
+            <span class=n>body</span> <span class=o>=</span> <span class=n>req</span><span class=o>.</span><span class=n>get_json</span><span class=p>()</span>
+        <span class=k>except</span> <span class=ne>ValueError</span><span class=p>:</span>
+            <span class=k>pass</span>
+        <span class=k>else</span><span class=p>:</span>
+            <span class=n>value</span> <span class=o>=</span> <span class=n>body</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=n>param</span><span class=p>)</span>
+    <span class=nb>print</span><span class=p>(</span><span class=n>value</span><span class=p>)</span>
+    <span class=k>return</span> <span class=n>safe_cast</span><span class=p>(</span><span class=n>value</span><span class=p>,</span> <span class=nb>int</span><span class=p>)</span>
+</code></pre></div><h3 id=casting>Casting</h3>
+<p>We want to cast the user input gotten from the last step, but we also want to tell the user if we can&rsquo;t parse the input to and <code>int</code>.<br>
+So what we are doing here is trying to parse the input, if we can&rsquo;t we return <code>None</code>.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-py data-lang=py><span class=c1># Function copied from https://stackoverflow.com/a/6330109 author: Artsiom Rudzenka</span>
+<span class=k>def</span> <span class=nf>safe_cast</span><span class=p>(</span><span class=n>val</span><span class=p>,</span> <span class=n>to_type</span><span class=p>,</span> <span class=n>default</span><span class=o>=</span><span class=kc>None</span><span class=p>):</span>
+    <span class=k>try</span><span class=p>:</span>
+        <span class=k>return</span> <span class=n>to_type</span><span class=p>(</span><span class=n>val</span><span class=p>)</span>
+    <span class=k>except</span> <span class=p>(</span><span class=ne>ValueError</span><span class=p>,</span> <span class=ne>TypeError</span><span class=p>):</span>
+        <span class=k>return</span> <span class=n>default</span>
+</code></pre></div><h2 id=setting-up-pipeline>Setting up pipeline!</h2>
+<p>Before we start setting up the pipeline I recommend you read my previous blog post about <a href=https://blog.letnh.com/docker-build-ci/>Docker Build CI</a>. I will not cover some parts, due we did cover them within the last blog post.</p>
+<p>Like we did with the last blogpost we setup a Jenkins pipeline with a git repo, that we need to add a secret for azure credentials, which you can acquire by following <a href="https://docs.microsoft.com/en-us/cli/azure/create-an-azure-service-principal-azure-cli?toc=%252fazure%252fazure-resource-manager%252ftoc.json">Create an Azure service principal Azure CLI</a></p>
+<p>After that create the following secret:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-yml data-lang=yml><span class=nt>Domain</span><span class=p>:</span><span class=w> </span><span class=l>Global</span><span class=w>
+</span><span class=w></span><span class=nt>Kind</span><span class=p>:</span><span class=w> </span><span class=l>Username with password</span><span class=w>
+</span><span class=w></span><span class=nt>ID</span><span class=p>:</span><span class=w> </span><span class=l>azure_credentials</span><span class=w>
+</span><span class=w></span><span class=nt>Username</span><span class=p>:</span><span class=w> </span><span class=l>appid from service-principal</span><span class=w>
+</span><span class=w></span><span class=nt>Passphrase</span><span class=p>:</span><span class=w> </span><span class=l>password from service-principal</span><span class=w>
+</span></code></pre></div><div class=highlight><pre tabindex=0 class=chroma><code class=language-groovy data-lang=groovy> <span class=n>pipeline</span> <span class=o>{</span>
+  <span class=n>environment</span> <span class=o>{</span>
+    <span class=n>AZURE_SUBSCRIPTION_ID</span> <span class=o>=</span> <span class=s2>&#34;&lt;azure_sub_id&gt;&#34;</span>
+    <span class=n>AZURE_TENANT_ID</span> <span class=o>=</span> <span class=s2>&#34;&lt;azure_tenant_id&gt;&#34;</span>
+    <span class=n>RESOURCE_GROUP</span> <span class=o>=</span> <span class=s2>&#34;&lt;resource_group&gt;&#34;</span>
+    <span class=n>FUNCTION_NAME</span> <span class=o>=</span> <span class=s2>&#34;&lt;func_name&gt;&#34;</span>
+  <span class=o>}</span>
+  <span class=n>agent</span> <span class=n>any</span>
+  <span class=n>stages</span> <span class=o>{</span>
+    <span class=n>stage</span><span class=o>(</span><span class=s1>&#39;Publish&#39;</span><span class=o>)</span> <span class=o>{</span>
+      <span class=n>steps</span> <span class=o>{</span>
+        <span class=n>withCredentials</span><span class=o>([</span><span class=n>usernamePassword</span><span class=o>(</span><span class=nl>credentialsId:</span> <span class=s1>&#39;azure_credentials&#39;</span><span class=o>,</span> <span class=nl>passwordVariable:</span> <span class=s1>&#39;AZURE_CLIENT_SECRET&#39;</span><span class=o>,</span> <span class=nl>usernameVariable:</span> <span class=s1>&#39;AZURE_CLIENT_ID&#39;</span><span class=o>)])</span> <span class=o>{</span>
+        <span class=n>sh</span> <span class=s1>&#39;&#39;&#39;
+</span><span class=s1>          az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID
+</span><span class=s1>          az account set -s $AZURE_SUBSCRIPTION_ID
+</span><span class=s1>        &#39;&#39;&#39;</span>
+        <span class=o>}</span>
+        <span class=n>sh</span> <span class=s2>&#34;func azure functionapp publish $FUNCTION_NAME&#34;</span>
+        <span class=n>sh</span> <span class=s1>&#39;az logout&#39;</span>
+      <span class=o>}</span>
+    <span class=o>}</span>
+  <span class=o>}</span>
+<span class=o>}</span>
+</code></pre></div><h2 id=test-and-validating>Test and validating?</h2>
+<p>With Azure, you can test applications from their portal, but for this application, it feels a bit overkill due to we only add two numbers together. So instead we can use <a href=https://curl.se>curl</a> which is a powerful command-line tool that helps us transfer data with URLs.<br>
+First we can test if url parameters are working:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>curl <span class=s2>&#34;https://{url}/api/addition?first={int}&amp;second={int}
+</span></code></pre></div><p>But we also need to see if a post request with body works too.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>curl -X POST <span class=o>{</span>url<span class=o>}</span> -H <span class=s2>&#34;Content-Type: application/json&#34;</span> -d <span class=s1>&#39;{&#34;first&#34;: {num}, &#34;second&#34;: {num}}&#39;</span>
+</code></pre></div><p>So when we run these commands we can both try to enter negative numbers, zero and positive numbers just to make sure everything works.</p>
+<h2 id=security-threats>Security threats?</h2>
+<p>There are no obvious security threats within the application scope, but there is possible that there is a vulnerability within Azure Functions that a bad actor can exploit to get access.<br>
+If we would have had either a database connection or executing Linux commands we would be more open.<br>
+But due to we make functions do one thing and do one thing well we can lower the surface for a bad actor to an extent, but when hosting an application on the internet we can never say we are 100% secure, and that&rsquo;s because we never are.<br>
+Example of recent Azure vulnerabilities:</p>
+<ul>
+<li><a href=https://thehackernews.com/2021/09/microsoft-warns-of-cross-account.html>Microsoft Warns of Cross-Account Takeover Bug in Azure Container Instances - The Hacker News</a></li>
+<li><a href=https://thehackernews.com/2021/09/critical-flaws-discovered-in-azure-app.html>Critical Flaws Discovered in Azure App That Microsoft Secretly Installs on Linux VMs - The Hacker News</a></li>
+<li><a href=https://www.theverge.com/2021/8/27/22644161/microsoft-azure-database-vulnerabilty-chaosdb>Microsoft Azure cloud vulnerability is the ‘worst you can imagine’ - The Verge</a></li>
+</ul>
+</article>
+</main><footer id=footer>
+Copyright © 2020 letnh
+</footer>
+</body>
+</html>
