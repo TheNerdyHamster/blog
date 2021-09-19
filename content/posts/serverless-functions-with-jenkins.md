@@ -19,7 +19,10 @@ categories: [
 ## What is Serverless and FaaS?  
 FaaS or Functions as a service is just a subset of serverless.  
 Serverless is focused on both compute, messaging, gateways, databases, and of course functions.   Instead of setting up your own, message broker and then write a service that listens on it, you could just write a function and deploy it to Azure, IBM, or AWS, etc.  
-When you are using FaaS you can choose when the function should trigger, if it's on an HTTP request, message, timer, etc.  This means that your code only executes on the "serverless" server when it's getting triggered. Most of today's cloud providers that offer FaaS only bills your per request, which means if you get 1 Million requests one month and two another, the bill will be adjusted. ## The code!
+When you are using FaaS you can choose when the function should trigger, if it's on an HTTP request, message, timer, etc.  
+This means that your code only executes on the "serverless" server when it's getting triggered. Most of today's cloud providers that offer FaaS only bills your per request/trigger, which means if your bill will be adjuseted based on total request/triggers.
+
+## The code!
 
 ```py
 import logging
