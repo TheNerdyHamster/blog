@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="LETNH Tech blog">
+    
+    <link rel="shortcut icon" href="https://blog.letnh.com/favicon.ico">
+    
+    <link rel="stylesheet" href="/css/style.min.css">
+
+    <title>CosmosDB With Serverless app</title>
+</head>
+<body><header id="banner">
+    <h2><a href="https://blog.letnh.com">LETNH - Blog</a></h2>
+    <nav>
+        <ul>
+            <li>
+                <a href="/" title="posts">posts</a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main id="content">
+<article>
+    <header id="post-header">
+        <h1>CosmosDB With Serverless app</h1>
+            <div>
+                <time>September 17, 2021</time>
+                </div>
+    </header><p>Before you contiune further I will just stop you a second. I recomend you read truough my other blog post about <a href="https://blog.letnh.com/serverless-functions-with-jenkins/">Serverless functions with Jenkins</a>. I will skip over the main focus things with did there, to save your time.<br>
+We will create a simple serverless REST API that&rsquo;s shows releases for an application. The app is written in <code>.NET</code> and will utilize Cosmos DB.</p>
+<h2 id="the-code">The code!</h2>
+<p>This is fairly simular to the last azure function with did, with python which you can read <a href="https://blog.letnh.com/serverless-functions-with-jenkins/">here</a>.<br>
+We create one function for <code>GET</code> and one for <code>POST</code> request, thats then connects to <a href="https://docs.microsoft.com/en-us/azure/cosmos-db/introduction">Azure Cosmos DB</a>. Which is a NO-SQL database simular to MongoDB.</p>
+<p>Our function that triggers on <code>POST</code> requests, takes the data included within the body and creates a new <code>Document</code> in the <code>app_x</code> container within our Cosmos DB, ofcourse if we can&rsquo;t parse the request an errord is retunerd.<br>
+When creatin a new release, you might not want that to be open to everyone. So we set it behind <code>AuthorizationLevel.Function</code> which means that when you request the endpoint you need a secret.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cs" data-lang="cs"><span class="na">[FunctionName(&#34;CreateRelease&#34;)]</span>
+<span class="k">public</span> <span class="k">async</span> <span class="n">Task</span><span class="p">&lt;</span><span class="n">IActionResult</span><span class="p">&gt;</span> <span class="n">CreateRelease</span><span class="p">([</span><span class="n">HttpTrigger</span><span class="p">(</span><span class="n">AuthorizationLevel</span><span class="p">.</span><span class="n">Function</span><span class="p">,</span> <span class="s">&#34;post&#34;</span><span class="p">,</span> <span class="n">Route</span> <span class="p">=</span> <span class="s">&#34;release&#34;</span><span class="p">)]</span> <span class="n">HttpRequest</span> <span class="n">req</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">string</span> <span class="n">requestBody</span> <span class="p">=</span> <span class="k">await</span> <span class="k">new</span> <span class="n">StreamReader</span><span class="p">(</span><span class="n">req</span><span class="p">.</span><span class="n">Body</span><span class="p">).</span><span class="n">ReadToEndAsync</span><span class="p">().</span><span class="n">ConfigureAwait</span><span class="p">(</span><span class="k">false</span><span class="p">);</span>
+    <span class="n">Release</span> <span class="n">release</span><span class="p">;</span>
+    <span class="k">try</span> <span class="p">{</span>
+      <span class="n">release</span> <span class="n">JsonConvert</span><span class="p">.</span><span class="n">DeserializeObject</span><span class="p">&lt;</span><span class="n">Release</span><span class="p">&gt;(</span><span class="n">requestBody</span><span class="p">);</span>
+    <span class="p">}</span> 
+    <span class="k">catch</span> <span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">Exception</span><span class="p">)</span>
+    <span class="p">{</span>
+      <span class="k">return</span> <span class="k">new</span> <span class="n">BadRequestObjectResult</span><span class="p">(</span><span class="s">&#34;Failed to parse request!&#34;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">await</span> <span class="m">_</span><span class="n">cosmosClient</span><span class="p">.</span><span class="n">GetContainer</span><span class="p">(</span><span class="s">&#34;app_x&#34;</span><span class="p">,</span> <span class="s">&#34;release&#34;</span><span class="p">).</span><span class="n">CreateItemAsync</span><span class="p">(</span><span class="n">release</span><span class="p">);</span>
+
+    <span class="kt">var</span> <span class="n">response</span> <span class="p">=</span> <span class="s">$&#34;Release notes successfully created!&#34;</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="k">new</span> <span class="n">OkObjectResult</span><span class="p">(</span><span class="n">response</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cs" data-lang="cs"><span class="na">[FunctionName(&#34;GetAllReleases&#34;)]</span>
+<span class="k">public</span> <span class="k">async</span> <span class="n">Task</span><span class="p">&lt;</span><span class="n">IActionResult</span><span class="p">&gt;</span> <span class="n">GetAllReleases</span><span class="p">([</span><span class="n">HttpTrigger</span><span class="p">(</span><span class="n">AuthorizationLevel</span><span class="p">.</span><span class="n">Anonymous</span><span class="p">,</span> <span class="s">&#34;get&#34;</span><span class="p">,</span> <span class="n">Route</span> <span class="p">=</span> <span class="s">&#34;release&#34;</span><span class="p">)]</span> <span class="n">HttpRequest</span> <span class="n">req</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">try</span> <span class="p">{</span>
+      <span class="kt">var</span> <span class="n">iterator</span> <span class="p">=</span> <span class="m">_</span><span class="n">cosmosClient</span><span class="p">.</span><span class="n">GetContainer</span><span class="p">(</span><span class="s">&#34;app_x&#34;</span><span class="p">,</span> <span class="s">&#34;Release&#34;</span><span class="p">).</span><span class="n">GetItemQueryIterator</span><span class="p">&lt;</span><span class="n">Release</span><span class="p">&gt;(</span><span class="k">new</span> <span class="n">QueryDefinition</span><span class="p">(</span><span class="s">&#34;SELECT * FROM release&#34;</span><span class="p">));</span>
+    <span class="p">}</span> 
+    <span class="k">catch</span> <span class="p">(</span><span class="n">System</span><span class="p">.</span><span class="n">Exception</span><span class="p">)</span>
+    <span class="p">{</span>
+      <span class="k">return</span> <span class="k">new</span> <span class="n">BadRequestObjectResult</span><span class="p">(</span><span class="s">&#34;Failed to fetch releases!&#34;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="kt">var</span> <span class="n">results</span> <span class="p">=</span> <span class="k">new</span> <span class="n">List</span><span class="p">&lt;</span><span class="n">Release</span><span class="p">&gt;();</span>
+
+    <span class="k">while</span> <span class="p">(</span><span class="n">iterator</span><span class="p">.</span><span class="n">HasMoreResults</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="kt">var</span> <span class="n">result</span> <span class="p">=</span> <span class="k">await</span> <span class="n">iterator</span><span class="p">.</span><span class="n">ReadNextAsync</span><span class="p">().</span><span class="n">ConfigureAwait</span><span class="p">(</span><span class="k">false</span><span class="p">);</span>
+        <span class="n">results</span><span class="p">.</span><span class="n">AddRange</span><span class="p">(</span><span class="n">result</span><span class="p">.</span><span class="n">Resource</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="k">new</span> <span class="n">OkObjectResult</span><span class="p">(</span><span class="n">results</span><span class="p">);</span>
+<span class="p">}</span>
+</code></pre></div><h2 id="the-database">The Database!</h2>
+<p>For the functions to access the Cosmos Database we will need to inject the <code>CosmosClient</code> as a dependency, which we can do with help of:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cs" data-lang="cs"><span class="n">builder</span><span class="p">.</span><span class="n">Services</span><span class="p">.</span><span class="n">AddSingleton</span><span class="p">(</span><span class="m">_</span> <span class="p">=&gt;</span>
+<span class="p">{</span>
+    <span class="kt">var</span> <span class="n">connectionString</span> <span class="p">=</span> <span class="n">Configuration</span><span class="p">[</span><span class="s">&#34;CosmosDbConnectionString&#34;</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="kt">string</span><span class="p">.</span><span class="n">IsNullOrEmpty</span><span class="p">(</span><span class="n">connectionString</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="n">InvalidOperationException</span><span class="p">(</span><span class="s">&#34;Invalid CosmosDBConnectionURL&#34;</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="k">new</span> <span class="n">CosmosClientBuilder</span><span class="p">(</span><span class="n">connectionString</span><span class="p">).</span><span class="n">Build</span><span class="p">();</span>
+<span class="p">});</span>
+</code></pre></div><h3 id="model">Model</h3>
+<p>When we store the data getting sent to our <code>REST API</code>, we need to have some sort of model. We can change this model, but beaware that the database scheme dosn&rsquo;t due to CosmosDB is a document database.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cs" data-lang="cs"><span class="k">public</span> <span class="k">class</span> <span class="nc">TodoItem</span>
+<span class="p">{</span>
+<span class="na">    [JsonProperty(&#34;id&#34;)]</span>
+    <span class="k">public</span> <span class="kt">string</span> <span class="n">Id</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+<span class="na">
+</span><span class="na">    [JsonProperty(&#34;title&#34;)]</span>
+    <span class="k">public</span> <span class="kt">string</span> <span class="n">Title</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+<span class="na">
+</span><span class="na">    [JsonProperty(&#34;Description&#34;)]</span>
+    <span class="k">public</span> <span class="kt">string</span> <span class="n">Description</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+<span class="na">
+</span><span class="na">    [JsonProperty(&#34;Version&#34;)]</span>
+    <span class="k">public</span> <span class="kt">int</span> <span class="n">Version</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+<span class="na">
+</span><span class="na">    [JsonProperty(&#34;Deprecated&#34;)]</span>
+    <span class="k">public</span> <span class="kt">bool</span> <span class="n">Deprecated</span> <span class="p">{</span> <span class="k">get</span><span class="p">;</span> <span class="k">set</span><span class="p">;</span> <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div><h3 id="how-do-we-handle-migrations">How do we handle migrations?</h3>
+<p>NO-SQL datbase does not really have a system for migrations, instead you need go trough a few steps such as, <code>update logic to support change</code>, <code>write script to update/change values</code>, <code>then deploy changes</code>. Which can be pain sometimes, but nothig is perfect and you earn flexaibility with NO-SQL.<br>
+EF-Core might support migrations with Cosmos DB, I havn&rsquo;t tried it so can&rsquo;t either deny or approve it.</p>
+<h2 id="setting-up-pipeline">Setting up pipeline!</h2>
+<p>This pipeline will be exactly the same from last blog post: <a href="https://blog.letnh.com/serverless-functions-with-jenkins/">Serverless function with Jenkins</a>. So if you want to know more please check that one out.</p>
+<p>This is the pipeline provide in last post, but it&rsquo;s works for this method without any problems too.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-yml" data-lang="yml"><span class="nt">Domain</span><span class="p">:</span><span class="w"> </span><span class="l">Global</span><span class="w">
+</span><span class="w"></span><span class="nt">Kind</span><span class="p">:</span><span class="w"> </span><span class="l">Username with password</span><span class="w">
+</span><span class="w"></span><span class="nt">ID</span><span class="p">:</span><span class="w"> </span><span class="l">azure_credentials</span><span class="w">
+</span><span class="w"></span><span class="nt">Username</span><span class="p">:</span><span class="w"> </span><span class="l">appid from service-principal</span><span class="w">
+</span><span class="w"></span><span class="nt">Passphrase</span><span class="p">:</span><span class="w"> </span><span class="l">password from service-principal</span><span class="w">
+</span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-groovy" data-lang="groovy"> <span class="n">pipeline</span> <span class="o">{</span>
+  <span class="n">environment</span> <span class="o">{</span>
+    <span class="n">AZURE_SUBSCRIPTION_ID</span> <span class="o">=</span> <span class="s2">&#34;&lt;azure_sub_id&gt;&#34;</span>
+    <span class="n">AZURE_TENANT_ID</span> <span class="o">=</span> <span class="s2">&#34;&lt;azure_tenant_id&gt;&#34;</span>
+    <span class="n">RESOURCE_GROUP</span> <span class="o">=</span> <span class="s2">&#34;&lt;resource_group&gt;&#34;</span>
+    <span class="n">FUNCTION_NAME</span> <span class="o">=</span> <span class="s2">&#34;&lt;func_name&gt;&#34;</span>
+  <span class="o">}</span>
+  <span class="n">agent</span> <span class="n">any</span>
+  <span class="n">stages</span> <span class="o">{</span>
+    <span class="n">stage</span><span class="o">(</span><span class="s1">&#39;Publish&#39;</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">steps</span> <span class="o">{</span>
+        <span class="n">withCredentials</span><span class="o">([</span><span class="n">usernamePassword</span><span class="o">(</span><span class="nl">credentialsId:</span> <span class="s1">&#39;azure_credentials&#39;</span><span class="o">,</span> <span class="nl">passwordVariable:</span> <span class="s1">&#39;AZURE_CLIENT_SECRET&#39;</span><span class="o">,</span> <span class="nl">usernameVariable:</span> <span class="s1">&#39;AZURE_CLIENT_ID&#39;</span><span class="o">)])</span> <span class="o">{</span>
+        <span class="n">sh</span> <span class="s1">&#39;&#39;&#39;
+</span><span class="s1">          az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET -t $AZURE_TENANT_ID
+</span><span class="s1">          az account set -s $AZURE_SUBSCRIPTION_ID
+</span><span class="s1">        &#39;&#39;&#39;</span>
+        <span class="o">}</span>
+        <span class="n">sh</span> <span class="s2">&#34;func azure functionapp publish $FUNCTION_NAME&#34;</span>
+        <span class="n">sh</span> <span class="s1">&#39;az logout&#39;</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</code></pre></div><h2 id="pricing">Pricing</h2>
+<p>Let&rsquo;s start talk price. There are things we should change before deploying to production, such as caching reading from the databse to save from reading the whole database on every new request.An example of this is <a href="https://www.dottedsquirrel.com/30k-firebase/">How NOT to get $30k bill from Firebase</a>. If we have optimized our application to not read and write tot he database all the time. The price for for a Serverless Cosmos DB (1 Million RUs) + Azure Function with 1 million executins is around ~1 to ~5$ per month if that.</p>
+<p>If the app would get popular over night and need <code>Standard provisioned</code> Cosmos Database for execution time, the price would go up to ~24$ but the cost will be affected by many parameters so it&rsquo;s always hard to say if you don&rsquo;t have the numbers.</p>
+</article>
+
+        </main><footer id="footer">
+    Copyright © 2020 letnh
+</footer>
+</body>
+</html>

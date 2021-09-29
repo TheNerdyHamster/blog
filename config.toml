@@ -8,7 +8,7 @@ pygmentsUseClasses = true
 
 [params]
   description = "LETNH Tech blog"
-  copyright = "Copyright © 2020 letnh"
+  copyright = "Copyright © 2021 letnh"
   dark = "auto"
   highlight = true
 

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="LETNH Tech blog">
+    
+    <link rel="shortcut icon" href="https://blog.letnh.com/favicon.ico">
+    
+    <link rel="stylesheet" href="/css/style.min.css">
+
+    <title>Azure webapps with Container</title>
+</head>
+<body><header id="banner">
+    <h2><a href="https://blog.letnh.com">LETNH - Blog</a></h2>
+    <nav>
+        <ul>
+            <li>
+                <a href="/" title="posts">posts</a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main id="content">
+<article>
+    <header id="post-header">
+        <h1>Azure webapps with Container</h1>
+            <div>
+                <time>September 24, 2021</time>
+                </div>
+    </header><p>We are gonna create a simple web application that will utilize <a href="https://freegeoip.app">FreeGeoIP</a>, to show the user what IP they are using and other infrmationa about it.<br>
+We will use Golang with Golang Templates to serve a static site to the user, and then build it into a super small container!</p>
+<h2 id="lets-check-the-code">Lets check the code!</h2>
+<p>Like I said earlier this is a simple golang web app, that serves a html template with GeoIP information.</p>
+<p>First we have the model which is preatty forward.
+It only has the the field we need to use from <a href="https://freegeoip.app">FreeGeoIP</a>.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="kd">type</span> <span class="nx">GeoData</span> <span class="kd">struct</span> <span class="p">{</span>
+	<span class="nx">IP</span>      <span class="kt">string</span> <span class="s">`json:&#34;ip&#34;`</span>
+	<span class="nx">Country</span> <span class="kt">string</span> <span class="s">`json:&#34;country_name&#34;`</span>
+	<span class="nx">Region</span>  <span class="kt">string</span> <span class="s">`json:&#34;region_name&#34;`</span>
+	<span class="nx">City</span>    <span class="kt">string</span> <span class="s">`json:&#34;city&#34;`</span>
+<span class="p">}</span>
+</code></pre></div><p>Now we want to request the data from <a href="https://freegeoip.app">FreeGeoIP</a>.
+Which is preatty staright forward, we send a get request, and parse the body to the data model defined above.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="nf">FetchIP</span><span class="p">(</span><span class="nx">ip</span> <span class="kt">string</span><span class="p">)</span> <span class="p">(</span><span class="nx">GeoData</span><span class="p">,</span> <span class="kt">error</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kd">var</span> <span class="nx">data</span> <span class="nx">GeoData</span>
+	<span class="nx">url</span> <span class="o">:=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nf">Sprintf</span><span class="p">(</span><span class="s">&#34;https://freegeoip.app/json/%v&#34;</span><span class="p">,</span> <span class="nx">ip</span><span class="p">)</span>
+	<span class="nx">resp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">http</span><span class="p">.</span><span class="nf">Get</span><span class="p">(</span><span class="nx">url</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">err</span>
+	<span class="p">}</span>
+
+	<span class="k">defer</span> <span class="nx">resp</span><span class="p">.</span><span class="nx">Body</span><span class="p">.</span><span class="nf">Close</span><span class="p">()</span>
+
+	<span class="nx">err</span> <span class="p">=</span> <span class="nx">json</span><span class="p">.</span><span class="nf">NewDecoder</span><span class="p">(</span><span class="nx">resp</span><span class="p">.</span><span class="nx">Body</span><span class="p">).</span><span class="nf">Decode</span><span class="p">(</span><span class="o">&amp;</span><span class="nx">data</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="k">return</span> <span class="nx">data</span><span class="p">,</span> <span class="nx">err</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="nx">data</span><span class="p">,</span> <span class="kc">nil</span>
+<span class="p">}</span>
+</code></pre></div><p>Now when we need to serve the data to our user(s).
+First of we parse the template file, after template is parsed we request the data then serve the data with the template file.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="nf">home</span><span class="p">(</span><span class="nx">w</span> <span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span> <span class="nx">r</span> <span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="nx">r</span><span class="p">.</span><span class="nx">URL</span><span class="p">.</span><span class="nx">Path</span> <span class="o">!=</span> <span class="s">&#34;/&#34;</span> <span class="p">{</span>
+		<span class="nx">http</span><span class="p">.</span><span class="nf">NotFound</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span> <span class="nx">r</span><span class="p">)</span>
+		<span class="k">return</span>
+	<span class="p">}</span>
+
+	<span class="nx">temp</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nx">template</span><span class="p">.</span><span class="nf">ParseFiles</span><span class="p">(</span><span class="s">&#34;./pages/home.page.tmpl&#34;</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;Error: &#34;</span> <span class="o">+</span> <span class="nx">err</span><span class="p">.</span><span class="nf">Error</span><span class="p">())</span>
+		<span class="nx">http</span><span class="p">.</span><span class="nf">Error</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span> <span class="s">&#34;Internal Server Error&#34;</span><span class="p">,</span> <span class="nx">http</span><span class="p">.</span><span class="nx">StatusInternalServerError</span><span class="p">)</span>
+		<span class="k">return</span>
+	<span class="p">}</span>
+
+	<span class="nx">address</span> <span class="o">:=</span> <span class="nx">strings</span><span class="p">.</span><span class="nf">Split</span><span class="p">(</span><span class="nx">r</span><span class="p">.</span><span class="nx">RemoteAddr</span><span class="p">,</span> <span class="s">&#34;:&#34;</span><span class="p">)</span>
+	<span class="nx">data</span><span class="p">,</span> <span class="nx">err</span> <span class="o">:=</span> <span class="nf">FetchIP</span><span class="p">(</span><span class="nx">address</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">http</span><span class="p">.</span><span class="nf">Error</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span> <span class="s">&#34;Internal Server Error&#34;</span><span class="p">,</span> <span class="nx">http</span><span class="p">.</span><span class="nx">StatusInternalServerError</span><span class="p">)</span>
+		<span class="k">return</span>
+	<span class="p">}</span>
+
+	<span class="nx">err</span> <span class="p">=</span> <span class="nx">temp</span><span class="p">.</span><span class="nf">Execute</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span> <span class="nx">data</span><span class="p">)</span>
+	<span class="k">if</span> <span class="nx">err</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+		<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;Error: &#34;</span> <span class="o">+</span> <span class="nx">err</span><span class="p">.</span><span class="nf">Error</span><span class="p">())</span>
+		<span class="nx">http</span><span class="p">.</span><span class="nf">Error</span><span class="p">(</span><span class="nx">w</span><span class="p">,</span> <span class="s">&#34;Internal Server Error&#34;</span><span class="p">,</span> <span class="mi">500</span><span class="p">)</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div><p>The template file looks likes this and uses <a href="https://pkg.go.dev/text/template">Golang - Template</a>.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-html" data-lang="html"><span class="cp">&lt;!doctype html&gt;</span>
+<span class="p">&lt;</span><span class="nt">html</span> <span class="na">lang</span><span class="o">=</span><span class="s">&#39;en&#39;</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">head</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">meta</span> <span class="na">charset</span><span class="o">=</span><span class="s">&#39;utf-8&#39;</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">title</span><span class="p">&gt;</span>Information about {{.IP}}<span class="p">&lt;/</span><span class="nt">title</span><span class="p">&gt;</span>
+    <span class="p">&lt;/</span><span class="nt">head</span><span class="p">&gt;</span>
+    <span class="p">&lt;</span><span class="nt">body</span><span class="p">&gt;</span>
+        <span class="p">&lt;</span><span class="nt">main</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;</span>Address: {{.IP}}<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;</span>Country: {{.Country}}<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;</span>Region: {{.Region}}<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
+            <span class="p">&lt;</span><span class="nt">p</span><span class="p">&gt;</span>City: {{.City}}<span class="p">&lt;/</span><span class="nt">p</span><span class="p">&gt;</span>
+        <span class="p">&lt;/</span><span class="nt">main</span><span class="p">&gt;</span>
+    <span class="p">&lt;/</span><span class="nt">body</span><span class="p">&gt;</span>
+<span class="p">&lt;/</span><span class="nt">html</span><span class="p">&gt;</span>
+</code></pre></div><p>Now to the last problem, and that&rsquo;s is to serve the application. I will be using <a href="https://github.com/gorilla/mux">Gorilla mux</a>. Which is a HTTP Router for golang.<br>
+Here we specify what handler we want to register and then we start the <code>HTTP</code> server.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-go" data-lang="go"><span class="kd">func</span> <span class="nf">main</span><span class="p">()</span> <span class="p">{</span>
+	<span class="nx">r</span> <span class="o">:=</span> <span class="nx">mux</span><span class="p">.</span><span class="nf">NewRouter</span><span class="p">()</span>
+
+	<span class="nx">r</span><span class="p">.</span><span class="nf">HandleFunc</span><span class="p">(</span><span class="s">&#34;/&#34;</span><span class="p">,</span> <span class="nx">home</span><span class="p">)</span>
+
+	<span class="nx">srv</span> <span class="o">:=</span> <span class="o">&amp;</span><span class="nx">http</span><span class="p">.</span><span class="nx">Server</span><span class="p">{</span>
+		<span class="nx">Handler</span><span class="p">:</span>      <span class="nx">r</span><span class="p">,</span>
+		<span class="nx">Addr</span><span class="p">:</span>         <span class="s">&#34;0.0.0.0:8080&#34;</span><span class="p">,</span>
+		<span class="nx">WriteTimeout</span><span class="p">:</span> <span class="mi">15</span> <span class="o">*</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">,</span>
+		<span class="nx">ReadTimeout</span><span class="p">:</span>  <span class="mi">15</span> <span class="o">*</span> <span class="nx">time</span><span class="p">.</span><span class="nx">Second</span><span class="p">,</span>
+	<span class="p">}</span>
+
+	<span class="nx">log</span><span class="p">.</span><span class="nf">Println</span><span class="p">(</span><span class="s">&#34;Starting application on &#34;</span> <span class="o">+</span> <span class="nx">srv</span><span class="p">.</span><span class="nx">Addr</span><span class="p">)</span>
+	<span class="nx">log</span><span class="p">.</span><span class="nf">Fatal</span><span class="p">(</span><span class="nx">srv</span><span class="p">.</span><span class="nf">ListenAndServe</span><span class="p">())</span>
+
+<span class="p">}</span>
+</code></pre></div><h3 id="dockerfile">Dockerfile</h3>
+<p>The docker file is next to a copy from <a href="https://blog.letnh.com/docker-build-ci/">Docker Build CI</a> where we coverd how to setup Jenkins pipeline to build and publish Docker image, which gives us less headace when deploying. If the image would be ~500mb to ~1GB it would take alot longer to deploy then ~9mb.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-Dockerfile" data-lang="Dockerfile"><span class="k">FROM</span><span class="s"> golang:1.15-alpine AS builder</span><span class="err">
+</span><span class="err"></span><span class="k">WORKDIR</span><span class="s"> /app</span><span class="err">
+</span><span class="err"></span><span class="k">COPY</span> src/ /app<span class="err">
+</span><span class="err"></span><span class="k">RUN</span> go get<span class="err">
+</span><span class="err"></span><span class="k">RUN</span> <span class="nv">CGO_ENABLED</span><span class="o">=</span><span class="m">0</span> go build -o /app/bin<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="k">FROM</span><span class="s"> scratch</span><span class="err">
+</span><span class="err"></span><span class="k">WORKDIR</span><span class="s"> /app</span><span class="err">
+</span><span class="err"></span><span class="k">COPY</span> --from<span class="o">=</span>builder /app/bin /app/bin<span class="err">
+</span><span class="err"></span><span class="k">COPY</span> --from<span class="o">=</span>builder /app/pages /app/pages<span class="err">
+</span><span class="err">
+</span><span class="err"></span><span class="k">EXPOSE</span><span class="s"> 8080</span><span class="err">
+</span><span class="err"></span><span class="k">CMD</span> <span class="p">[</span><span class="s2">&#34;/app/bin&#34;</span><span class="p">]</span><span class="err">
+</span></code></pre></div><h2 id="what-does-the-pipeline-do">What does the pipeline do?</h2>
+<p>We will use the same pipeline used in <a href="https://blog.letnh.com/docker-build-ci/">Docker Build CI</a>. Because it does what we need, and instead of reinveting the wheel we can use something that we already done earlier.<br>
+The pipeline is structed the same and if you want know more how to deploy one, read <a href="https://blog.letnh.com/docker-build-ci/">Docker Build CI</a>.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-gradle" data-lang="gradle"><span class="n">pipeline</span> <span class="o">{</span>
+  <span class="n">environment</span> <span class="o">{</span>
+      <span class="n">imageName</span> <span class="o">=</span> <span class="s2">&#34;thenerdyhamster/geoip&#34;</span>
+      <span class="n">registryCredentials</span> <span class="o">=</span> <span class="s2">&#34;docker-hub-credentials&#34;</span>
+      <span class="n">dockerImage</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+  <span class="o">}</span>
+  <span class="n">agent</span> <span class="n">any</span>
+  <span class="n">stages</span> <span class="o">{</span>
+    <span class="n">stage</span><span class="o">(</span><span class="s2">&#34;Build image&#34;</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">steps</span> <span class="o">{</span>
+        <span class="n">script</span> <span class="o">{</span>
+          <span class="n">dockerImage</span> <span class="o">=</span> <span class="n">docker</span><span class="o">.</span><span class="na">build</span> <span class="n">imageName</span>
+        <span class="o">}</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="n">stage</span><span class="o">(</span><span class="s2">&#34;Push image&#34;</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">steps</span> <span class="o">{</span>
+        <span class="n">script</span> <span class="o">{</span>
+          <span class="n">docker</span><span class="o">.</span><span class="na">withRegistry</span><span class="o">(</span><span class="s1">&#39;&#39;</span><span class="o">,</span> <span class="n">registryCredentials</span><span class="o">)</span> <span class="o">{</span>
+              <span class="n">dockerImage</span><span class="o">.</span><span class="na">push</span><span class="o">(</span><span class="s1">&#39;$BUILD_NUMBER&#39;</span><span class="o">)</span>
+              <span class="n">dockerImage</span><span class="o">.</span><span class="na">push</span><span class="o">(</span><span class="s1">&#39;latest&#39;</span><span class="o">)</span>
+          <span class="o">}</span>
+        <span class="o">}</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="n">stage</span><span class="o">(</span><span class="s2">&#34;Clean up build&#34;</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">steps</span> <span class="o">{</span>
+        <span class="n">script</span> <span class="o">{</span>
+          <span class="n">sh</span> <span class="s2">&#34;docker rmi $imageName:$BUILD_NUMBER&#34;</span>
+          <span class="n">sh</span> <span class="s2">&#34;docker rmi $imageName:latest&#34;</span>
+        <span class="o">}</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+
+</code></pre></div><h2 id="pricing">Pricing</h2>
+<p>App Services are preatty expensive but might be the soulution sometimes, a small workload would be around 13$ to $69.
+Depending on the how high workload we get we can get by with something between $69 to $81.<br>
+There are also other alternatives that might fit better, such as Container Instace or Static Web App but thats another story.
+<img src="/azure-app-service-pricing.png" alt="Azure App Service Pricing"></p>
+</article>
+
+        </main><footer id="footer">
+    Copyright © 2020 letnh
+</footer>
+</body>
+</html>
