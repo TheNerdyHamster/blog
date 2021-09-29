@@ -1,0 +1,53 @@
+<!doctype html><html><head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="LETNH Tech blog">
+<link rel="shortcut icon" href=https://blog.letnh.com/favicon.ico>
+<link rel=stylesheet href=/css/style.min.css>
+<title>Connect on-prem to Azure</title>
+</head>
+<body><header id=banner>
+<h2><a href=https://blog.letnh.com>LETNH - Blog</a></h2>
+<nav>
+<ul>
+<li>
+<a href=/ title=posts>posts</a>
+</li>
+</ul>
+</nav>
+</header>
+<main id=content>
+<article>
+<header id=post-header>
+<h1>Connect on-prem to Azure</h1>
+<div>
+<time>September 29, 2021</time>
+</div>
+</header><h2 id=what-is-azure-private-link>What is Azure Private Link?</h2>
+<p><a href=https://azure.microsoft.com/en-us/services/private-link/>Azure Private Link</a> gives the ability to connect Virtual Networks in Azure to either, Azure PaaS services, or other Virtual Networks maintained by &ldquo;customers&rdquo; or other departments.<br>
+When using Azure Private Link, it&rsquo;s also possible to connect a network in EU to a network in US to establish a private communication. You are not requiered to setup VPN connections, NAT devices, gateways etc. All traffic sent over the Azure Private Link is kept on <a href=https://docs.microsoft.com/en-us/azure/networking/microsoft-global-network>Microsoft Global Network</a>.</p>
+<h2 id=what-is-private-cloud>What is private cloud</h2>
+<p>Virtual Private cloud (VPC) are cloud enviorments deployed within a controlled area separated from the private cloud on cloud providers.<br>
+Connection to VPC are most of the times establish either via VPN, site-to-site VPN, or direct fiber to the providers internal network, in Azure&rsquo;s case Microsoft Global Network.
+When using VPC you also get the same benefits when using a public cloud, such as HA, pay-as-you-go, on demand services etc.</p>
+<h2 id=private-connection-between-azure-and-on-prem>Private Connection between Azure and on-prem</h2>
+<p>To establish a private connection between our infrastructrue and Azure we need to utilize either a <a href="https://docs.microsoft.com/en-us/microsoft-365/enterprise/connect-an-on-premises-network-to-a-microsoft-azure-virtual-network?view=o365-worldwide">site-to-site VPN</a> or <a href=https://azure.microsoft.com/en-us/services/expressroute/#overview>ExpressRoute</a>.</p>
+<h3 id=site-to-site-vpn>Site-to-site VPN</h3>
+<p>Is just a VPN connection between your infrastructure and Azure, all the traffic are sent over the public internet, Azures site-to-site VPN uses IPsec and up to ~100Mbps aggregated bandwidth.</p>
+<h3 id=expressroute>ExpressRoute</h3>
+<p>ExpressRoute is more complext then site-to-site VPN, but the traffic is not sent over the public internet. Instead your infrastructure is connected over fiber to one of many &ldquo;Network hub&rdquo; within Microsofts Global Network.<br>
+This can result in private communication, up to 100 Gbps bandwith, lower latency to services provided by Microsoft and Azure.</p>
+<h3 id=example-setup>Example setup</h3>
+<p>The diagram below shows a simple overview how we can utilize both ExpressRoute and Azure Private Link to gain access between internal infrastructure and Azure.<br>
+This example does also work if you want to setup a site-to-site VPN, the only thing that is getting changed is how you establish a connection to Azure.<br>
+<img src=/img/onprem-to-azure.drawio.png alt="Example setup of on-prem to azure"></p>
+<h2 id=what-about-security>What about Security?</h2>
+<p>There is no system that is 100% bullet proof. That does also apply to running ExpressRoute and Azure Private Link, the traffic might go on the Micrsoft Global Network but that can&rsquo;t exclude security problems.There could be missconfiguration, vulnabilties etc that can expose your infrastructre.<br>
+But you should also know about <a href=https://www.gdpreu.org/>GDPR</a> and <a href=https://www.justice.gov/dag/cloudact>Cloud Act</a>, before you consider what should be moved to Cloud Providers no matter if it&rsquo;s Microsoft, Google, or Amazon etc. <em>This is not legal advice, just heads up. Please consult with a lawyer</em><br>
+Be also aware of what data, you move to cloud and where it is, and who has access to it, the bigger cloud enviorment you get, more structure and controll you need.</p>
+</article>
+</main><footer id=footer>
+Copyright © 2021 letnh
+</footer>
+</body>
+</html>
