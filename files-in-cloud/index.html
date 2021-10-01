@@ -1,0 +1,213 @@
+<!doctype html><html><head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="LETNH Tech blog">
+<link rel="shortcut icon" href=https://blog.letnh.com/favicon.ico>
+<link rel=stylesheet href=/css/style.min.css>
+<title>Files in Cloud</title>
+</head>
+<body><header id=banner>
+<h2><a href=https://blog.letnh.com>LETNH - Blog</a></h2>
+<nav>
+<ul>
+<li>
+<a href=/ title=posts>posts</a>
+</li>
+</ul>
+</nav>
+</header>
+<main id=content>
+<article>
+<header id=post-header>
+<h1>Files in Cloud</h1>
+<div>
+<time>October 1, 2021</time>
+</div>
+</header><p>Today we will create a simple web application, where files can be uploaded trough a <code>REST API</code>.<br>
+We will have one <code>/upload</code> endpoint which only accepts <code>POST</code> requests, if we then head over to <code>/</code> we will see a list of files uploaded to the server.<br>
+<em>This is not for production, please secure appliation and conduct legal advice before putting it in production</em></p>
+<h2 id=application-structure>Application structure</h2>
+<p><img src=/img/files-in-azure.png alt="Diagram over how communication is between Storage and App Service"></p>
+<h3 id=what-does-the-code-look-like>What does the code look like</h3>
+<p>First we define two helper functions to both authenticate agianst azure storage, and create a storage container.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>func</span> <span class=nf>AuthenticateStorage</span><span class=p>(</span><span class=nx>accountName</span><span class=p>,</span> <span class=nx>accountKey</span> <span class=kt>string</span><span class=p>)</span> <span class=nx>pipeline</span><span class=p>.</span><span class=nx>Pipeline</span> <span class=p>{</span>
+	<span class=nx>credential</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>azblob</span><span class=p>.</span><span class=nf>NewSharedKeyCredential</span><span class=p>(</span><span class=nx>accountName</span><span class=p>,</span> <span class=nx>accountKey</span><span class=p>)</span>
+	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+		<span class=nx>log</span><span class=p>.</span><span class=nf>Fatal</span><span class=p>(</span><span class=s>&#34;Invalid credentials with error: &#34;</span> <span class=o>+</span> <span class=nx>err</span><span class=p>.</span><span class=nf>Error</span><span class=p>())</span>
+	<span class=p>}</span>
+
+	<span class=k>return</span> <span class=nx>azblob</span><span class=p>.</span><span class=nf>NewPipeline</span><span class=p>(</span><span class=nx>credential</span><span class=p>,</span> <span class=nx>azblob</span><span class=p>.</span><span class=nx>PipelineOptions</span><span class=p>{})</span>
+<span class=p>}</span>
+
+<span class=kd>func</span> <span class=nf>CreateStorageContainer</span><span class=p>(</span><span class=nx>accountName</span> <span class=kt>string</span><span class=p>,</span> <span class=nx>pipeline</span> <span class=nx>pipeline</span><span class=p>.</span><span class=nx>Pipeline</span><span class=p>)</span> <span class=p>{</span>
+
+	<span class=nx>storageURL</span><span class=p>,</span> <span class=nx>_</span> <span class=p>=</span> <span class=nx>url</span><span class=p>.</span><span class=nf>Parse</span><span class=p>(</span>
+		<span class=nx>fmt</span><span class=p>.</span><span class=nf>Sprintf</span><span class=p>(</span><span class=s>&#34;https://%s.blob.core.windows.net/%s&#34;</span><span class=p>,</span> <span class=nx>accountName</span><span class=p>,</span> <span class=s>&#34;letnh-app-storage&#34;</span><span class=p>))</span>
+
+	<span class=nx>containerURL</span> <span class=p>=</span> <span class=nx>azblob</span><span class=p>.</span><span class=nf>NewContainerURL</span><span class=p>(</span><span class=o>*</span><span class=nx>storageURL</span><span class=p>,</span> <span class=nx>pipeline</span><span class=p>)</span>
+
+	<span class=nx>ctx</span> <span class=o>:=</span> <span class=nx>context</span><span class=p>.</span><span class=nf>Background</span><span class=p>()</span>
+	<span class=k>defer</span> <span class=nx>ctx</span><span class=p>.</span><span class=nf>Done</span><span class=p>()</span>
+
+	<span class=nx>_</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>containerURL</span><span class=p>.</span><span class=nf>Create</span><span class=p>(</span><span class=nx>ctx</span><span class=p>,</span> <span class=nx>azblob</span><span class=p>.</span><span class=nx>Metadata</span><span class=p>{},</span> <span class=nx>azblob</span><span class=p>.</span><span class=nx>PublicAccessBlob</span><span class=p>)</span>
+	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+		<span class=nx>log</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=nx>err</span><span class=p>)</span>
+	<span class=p>}</span>
+<span class=p>}</span>
+</code></pre></div><p>Let&rsquo;s define our two routes we needed, <code>/</code> and <code>/upload</code>.</p>
+<h4 id=upload-route>Upload route</h4>
+<p>When we upload a to our <code>API</code>, the file gets stored on our machine first <em>ease of PoC</em>.<br>
+If we would deploy this to production, it would be recommended to write it directly to <code>Azure Storage</code>.
+After the file is saved on our machine, we upload to azure with a unique unix timestamp for every file, to avoid name conflicts.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>func</span> <span class=nf>upload</span><span class=p>(</span><span class=nx>w</span> <span class=nx>http</span><span class=p>.</span><span class=nx>ResponseWriter</span><span class=p>,</span> <span class=nx>r</span> <span class=o>*</span><span class=nx>http</span><span class=p>.</span><span class=nx>Request</span><span class=p>)</span> <span class=p>{</span>
+	<span class=nx>file</span><span class=p>,</span> <span class=nx>handler</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>r</span><span class=p>.</span><span class=nf>FormFile</span><span class=p>(</span><span class=s>&#34;file&#34;</span><span class=p>)</span>
+	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+		<span class=nx>log</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=s>&#34;Error: &#34;</span> <span class=o>+</span> <span class=nx>err</span><span class=p>.</span><span class=nf>Error</span><span class=p>())</span>
+		<span class=nx>http</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=nx>w</span><span class=p>,</span> <span class=s>&#34;Internal Server Error&#34;</span><span class=p>,</span> <span class=nx>http</span><span class=p>.</span><span class=nx>StatusInternalServerError</span><span class=p>)</span>
+	<span class=p>}</span>
+	<span class=k>defer</span> <span class=nx>file</span><span class=p>.</span><span class=nf>Close</span><span class=p>()</span>
+
+	<span class=nx>f</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>os</span><span class=p>.</span><span class=nf>OpenFile</span><span class=p>(</span><span class=nx>handler</span><span class=p>.</span><span class=nx>Filename</span><span class=p>,</span> <span class=nx>os</span><span class=p>.</span><span class=nx>O_WRONLY</span><span class=p>|</span><span class=nx>os</span><span class=p>.</span><span class=nx>O_CREATE</span><span class=p>,</span> <span class=mo>0666</span><span class=p>)</span>
+	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+		<span class=nx>log</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=s>&#34;Error: &#34;</span> <span class=o>+</span> <span class=nx>err</span><span class=p>.</span><span class=nf>Error</span><span class=p>())</span>
+		<span class=nx>http</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=nx>w</span><span class=p>,</span> <span class=s>&#34;Internal Server Error&#34;</span><span class=p>,</span> <span class=nx>http</span><span class=p>.</span><span class=nx>StatusInternalServerError</span><span class=p>)</span>
+	<span class=p>}</span>
+
+	<span class=k>defer</span> <span class=nx>f</span><span class=p>.</span><span class=nf>Close</span><span class=p>()</span>
+
+	<span class=nx>_</span><span class=p>,</span> <span class=nx>_</span> <span class=p>=</span> <span class=nx>io</span><span class=p>.</span><span class=nf>Copy</span><span class=p>(</span><span class=nx>f</span><span class=p>,</span> <span class=nx>file</span><span class=p>)</span>
+
+  <span class=nx>fileName</span> <span class=o>:=</span> <span class=nx>fmt</span><span class=p>.</span><span class=nf>Sprintf</span><span class=p>(</span><span class=s>&#34;%v-%s&#34;</span><span class=p>,</span> <span class=nx>time</span><span class=p>.</span><span class=nf>Now</span><span class=p>().</span><span class=nf>Unix</span><span class=p>(),</span> <span class=nx>handler</span><span class=p>.</span><span class=nx>Filename</span><span class=p>)</span>
+	<span class=nx>blobUrl</span> <span class=o>:=</span> <span class=nx>containerURL</span><span class=p>.</span><span class=nf>NewBlockBlobURL</span><span class=p>(</span><span class=nx>fileName</span><span class=p>)</span>
+	<span class=nx>f</span><span class=p>,</span> <span class=nx>_</span> <span class=p>=</span> <span class=nx>os</span><span class=p>.</span><span class=nf>Open</span><span class=p>(</span><span class=nx>handler</span><span class=p>.</span><span class=nx>Filename</span><span class=p>)</span>
+	<span class=nx>_</span><span class=p>,</span> <span class=nx>err</span> <span class=p>=</span> <span class=nx>azblob</span><span class=p>.</span><span class=nf>UploadFileToBlockBlob</span><span class=p>(</span><span class=nx>context</span><span class=p>.</span><span class=nf>Background</span><span class=p>(),</span> <span class=nx>f</span><span class=p>,</span> <span class=nx>blobUrl</span><span class=p>,</span> <span class=nx>azblob</span><span class=p>.</span><span class=nx>UploadToBlockBlobOptions</span><span class=p>{</span>
+		<span class=nx>BlockSize</span><span class=p>:</span>   <span class=mi>4</span> <span class=o>*</span> <span class=mi>1024</span> <span class=o>*</span> <span class=mi>1024</span><span class=p>,</span>
+		<span class=nx>Parallelism</span><span class=p>:</span> <span class=mi>16</span><span class=p>,</span>
+	<span class=p>})</span>
+
+	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+		<span class=nx>log</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=s>&#34;Error: &#34;</span> <span class=o>+</span> <span class=nx>err</span><span class=p>.</span><span class=nf>Error</span><span class=p>())</span>
+		<span class=nx>http</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=nx>w</span><span class=p>,</span> <span class=s>&#34;Internal Server Error&#34;</span><span class=p>,</span> <span class=nx>http</span><span class=p>.</span><span class=nx>StatusInternalServerError</span><span class=p>)</span>
+	<span class=p>}</span>
+
+	<span class=nx>os</span><span class=p>.</span><span class=nf>Remove</span><span class=p>(</span><span class=nx>handler</span><span class=p>.</span><span class=nx>Filename</span><span class=p>)</span>
+	<span class=nx>_</span><span class=p>,</span> <span class=nx>_</span> <span class=p>=</span> <span class=nx>io</span><span class=p>.</span><span class=nf>WriteString</span><span class=p>(</span><span class=nx>w</span><span class=p>,</span> <span class=s>&#34;File &#34;</span><span class=o>+</span><span class=nx>fileName</span><span class=o>+</span><span class=s>&#34; Uploaded successfully&#34;</span><span class=p>)</span>
+<span class=p>}</span>
+
+</code></pre></div><h4 id=home-route>Home route</h4>
+<p>Now when we creating the <code>/</code> route, we will utilize Azure to list the files and it&rsquo;s <code>Name</code>, <code>Size</code>, <code>Url</code>, and <code>CreatedAt</code>.<br>
+Most things here is what we coverd during <a href=https://blog.letnh.com/azure-webapps-with-container/>Azure Webapps with Container</a> so let&rsquo;s skip it for now.<br>
+What we do here is just looping over the files, and the put them into a list of <code>Blob</code> struct. Then the data get served with our <code>home.page.tmpl</code> which shown further down. Which outputs a list of links to the downloadable link of the file.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>func</span> <span class=nf>home</span><span class=p>(</span><span class=nx>w</span> <span class=nx>http</span><span class=p>.</span><span class=nx>ResponseWriter</span><span class=p>,</span> <span class=nx>r</span> <span class=o>*</span><span class=nx>http</span><span class=p>.</span><span class=nx>Request</span><span class=p>)</span> <span class=p>{</span>
+	<span class=k>if</span> <span class=nx>r</span><span class=p>.</span><span class=nx>URL</span><span class=p>.</span><span class=nx>Path</span> <span class=o>!=</span> <span class=s>&#34;/&#34;</span> <span class=p>{</span>
+		<span class=nx>http</span><span class=p>.</span><span class=nf>NotFound</span><span class=p>(</span><span class=nx>w</span><span class=p>,</span> <span class=nx>r</span><span class=p>)</span>
+		<span class=k>return</span>
+	<span class=p>}</span>
+
+	<span class=nx>temp</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>template</span><span class=p>.</span><span class=nf>ParseFiles</span><span class=p>(</span><span class=s>&#34;./pages/home.page.tmpl&#34;</span><span class=p>)</span>
+	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+		<span class=nx>log</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=s>&#34;Error: &#34;</span> <span class=o>+</span> <span class=nx>err</span><span class=p>.</span><span class=nf>Error</span><span class=p>())</span>
+		<span class=nx>http</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=nx>w</span><span class=p>,</span> <span class=s>&#34;Internal Server Error&#34;</span><span class=p>,</span> <span class=nx>http</span><span class=p>.</span><span class=nx>StatusInternalServerError</span><span class=p>)</span>
+		<span class=k>return</span>
+	<span class=p>}</span>
+
+	<span class=nx>blobs</span> <span class=o>:=</span> <span class=p>[]</span><span class=nx>Blob</span><span class=p>{}</span>
+	<span class=k>for</span> <span class=nx>marker</span> <span class=o>:=</span> <span class=p>(</span><span class=nx>azblob</span><span class=p>.</span><span class=nx>Marker</span><span class=p>{});</span> <span class=nx>marker</span><span class=p>.</span><span class=nf>NotDone</span><span class=p>();</span> <span class=p>{</span>
+		<span class=nx>listBlob</span><span class=p>,</span> <span class=nx>err</span> <span class=o>:=</span> <span class=nx>containerURL</span><span class=p>.</span><span class=nf>ListBlobsFlatSegment</span><span class=p>(</span><span class=nx>context</span><span class=p>.</span><span class=nf>Background</span><span class=p>(),</span> <span class=nx>marker</span><span class=p>,</span> <span class=nx>azblob</span><span class=p>.</span><span class=nx>ListBlobsSegmentOptions</span><span class=p>{})</span>
+		<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+			<span class=nx>log</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=s>&#34;Error: &#34;</span> <span class=o>+</span> <span class=nx>err</span><span class=p>.</span><span class=nf>Error</span><span class=p>())</span>
+			<span class=nx>http</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=nx>w</span><span class=p>,</span> <span class=s>&#34;Internal Server Error&#34;</span><span class=p>,</span> <span class=nx>http</span><span class=p>.</span><span class=nx>StatusInternalServerError</span><span class=p>)</span>
+		<span class=p>}</span>
+
+		<span class=nx>marker</span> <span class=p>=</span> <span class=nx>listBlob</span><span class=p>.</span><span class=nx>NextMarker</span>
+
+		<span class=c1>// Process the blobs returned in this result segment (if the segment is empty, the loop body won&#39;t execute)
+</span><span class=c1></span>		<span class=k>for</span> <span class=nx>_</span><span class=p>,</span> <span class=nx>blobInfo</span> <span class=o>:=</span> <span class=k>range</span> <span class=nx>listBlob</span><span class=p>.</span><span class=nx>Segment</span><span class=p>.</span><span class=nx>BlobItems</span> <span class=p>{</span>
+			<span class=nx>blob</span> <span class=o>:=</span> <span class=nx>Blob</span><span class=p>{</span>
+				<span class=nx>Name</span><span class=p>:</span>      <span class=nx>blobInfo</span><span class=p>.</span><span class=nx>Name</span><span class=p>,</span>
+				<span class=nx>Size</span><span class=p>:</span>      <span class=nf>ByteCountSI</span><span class=p>(</span><span class=o>*</span><span class=nx>blobInfo</span><span class=p>.</span><span class=nx>Properties</span><span class=p>.</span><span class=nx>ContentLength</span><span class=p>),</span>
+				<span class=nx>CreatedAt</span><span class=p>:</span> <span class=nx>blobInfo</span><span class=p>.</span><span class=nx>Properties</span><span class=p>.</span><span class=nx>CreationTime</span><span class=p>.</span><span class=nf>String</span><span class=p>(),</span>
+				<span class=nx>Url</span><span class=p>:</span>       <span class=nx>fmt</span><span class=p>.</span><span class=nf>Sprintf</span><span class=p>(</span><span class=s>&#34;%s/%s&#34;</span><span class=p>,</span> <span class=nx>storageURL</span><span class=p>.</span><span class=nf>String</span><span class=p>(),</span> <span class=nx>blobInfo</span><span class=p>.</span><span class=nx>Name</span><span class=p>),</span>
+			<span class=p>}</span>
+			<span class=nx>blobs</span> <span class=p>=</span> <span class=nb>append</span><span class=p>(</span><span class=nx>blobs</span><span class=p>,</span> <span class=nx>blob</span><span class=p>)</span>
+		<span class=p>}</span>
+	<span class=p>}</span>
+
+	<span class=nx>err</span> <span class=p>=</span> <span class=nx>temp</span><span class=p>.</span><span class=nf>Execute</span><span class=p>(</span><span class=nx>w</span><span class=p>,</span> <span class=nx>blobs</span><span class=p>)</span>
+	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+		<span class=nx>log</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=s>&#34;Error: &#34;</span> <span class=o>+</span> <span class=nx>err</span><span class=p>.</span><span class=nf>Error</span><span class=p>())</span>
+		<span class=nx>http</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=nx>w</span><span class=p>,</span> <span class=s>&#34;Internal Server Error&#34;</span><span class=p>,</span> <span class=mi>500</span><span class=p>)</span>
+	<span class=p>}</span>
+<span class=p>}</span>
+</code></pre></div><h4 id=template-file>Template file</h4>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-html data-lang=html><span class=cp>&lt;!doctype html&gt;</span>
+<span class=p>&lt;</span><span class=nt>html</span> <span class=na>lang</span><span class=o>=</span><span class=s>&#39;en&#39;</span><span class=p>&gt;</span>
+<span class=p>&lt;</span><span class=nt>head</span><span class=p>&gt;</span>
+    <span class=p>&lt;</span><span class=nt>meta</span> <span class=na>charset</span><span class=o>=</span><span class=s>&#39;utf-8&#39;</span><span class=p>&gt;</span>
+    <span class=p>&lt;</span><span class=nt>title</span><span class=p>&gt;</span>List avaible files<span class=p>&lt;/</span><span class=nt>title</span><span class=p>&gt;</span>
+    <span class=p>&lt;</span><span class=nt>style</span><span class=p>&gt;</span>
+    <span class=nt>body</span> <span class=p>{</span>
+      <span class=k>background-color</span><span class=p>:</span> <span class=mh>#222222</span><span class=p>;</span>
+      <span class=k>color</span><span class=p>:</span> <span class=mh>#ffffff</span><span class=p>;</span>
+    <span class=p>}</span>
+    <span class=p>&lt;/</span><span class=nt>style</span><span class=p>&gt;</span>
+<span class=p>&lt;/</span><span class=nt>head</span><span class=p>&gt;</span>
+<span class=p>&lt;</span><span class=nt>body</span><span class=p>&gt;</span>
+    <span class=p>&lt;</span><span class=nt>main</span><span class=p>&gt;</span>
+      <span class=p>&lt;</span><span class=nt>i</span><span class=p>&gt;</span>To upload please post filet to /upload<span class=p>&lt;/</span><span class=nt>i</span><span class=p>&gt;</span>
+      <span class=p>&lt;</span><span class=nt>ul</span><span class=p>&gt;</span>
+        {{ range . }}
+        <span class=p>&lt;</span><span class=nt>li</span> <span class=na>style</span><span class=o>=</span><span class=s>&#34;list-style-type: none;&#34;</span><span class=p>&gt;</span>
+          <span class=p>&lt;</span><span class=nt>a</span> <span class=na>href</span><span class=o>=</span><span class=s>{{.Url}}</span><span class=p>&gt;</span>{{.Name}} - Size: {{.Size}} - Created: {{.CreatedAt}}<span class=p>&lt;/</span><span class=nt>a</span><span class=p>&gt;</span>
+        <span class=p>&lt;/</span><span class=nt>li</span><span class=p>&gt;</span>
+        {{ end }}
+      <span class=p>&lt;/</span><span class=nt>ul</span><span class=p>&gt;</span>
+    <span class=p>&lt;/</span><span class=nt>main</span><span class=p>&gt;</span>
+<span class=p>&lt;/</span><span class=nt>body</span><span class=p>&gt;</span>
+<span class=p>&lt;/</span><span class=nt>html</span><span class=p>&gt;</span>
+</code></pre></div><h4 id=main>Main</h4>
+<p>In our main function, we register both <code>AZURE_STORAGE_ACCESS_KEY</code> and <code>AZURE_STORAGE_ACCOUNT</code> environment variable, and register both <code>/upload</code> and <code>/</code> routes with handlers shown above.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>func</span> <span class=nf>main</span><span class=p>()</span> <span class=p>{</span>
+	<span class=nx>accountName</span><span class=p>,</span> <span class=nx>accountKey</span> <span class=o>:=</span> <span class=nx>os</span><span class=p>.</span><span class=nf>Getenv</span><span class=p>(</span><span class=s>&#34;AZURE_STORAGE_ACCOUNT&#34;</span><span class=p>),</span> <span class=nx>os</span><span class=p>.</span><span class=nf>Getenv</span><span class=p>(</span><span class=s>&#34;AZURE_STORAGE_ACCESS_KEY&#34;</span><span class=p>)</span>
+	<span class=k>if</span> <span class=nb>len</span><span class=p>(</span><span class=nx>accountName</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span> <span class=o>||</span> <span class=nb>len</span><span class=p>(</span><span class=nx>accountKey</span><span class=p>)</span> <span class=o>==</span> <span class=mi>0</span> <span class=p>{</span>
+		<span class=nx>log</span><span class=p>.</span><span class=nf>Fatal</span><span class=p>(</span><span class=s>&#34;Either the AZURE_STORAGE_ACCOUNT or AZURE_STORAGE_ACCESS_KEY environment variable is not set&#34;</span><span class=p>)</span>
+	<span class=p>}</span>
+
+	<span class=nx>pipeline</span> <span class=o>:=</span> <span class=nf>AuthenticateStorage</span><span class=p>(</span><span class=nx>accountName</span><span class=p>,</span> <span class=nx>accountKey</span><span class=p>)</span>
+	<span class=nf>CreateStorageContainer</span><span class=p>(</span><span class=nx>accountName</span><span class=p>,</span> <span class=nx>pipeline</span><span class=p>)</span>
+
+	<span class=nx>r</span> <span class=o>:=</span> <span class=nx>mux</span><span class=p>.</span><span class=nf>NewRouter</span><span class=p>()</span>
+
+	<span class=nx>r</span><span class=p>.</span><span class=nf>HandleFunc</span><span class=p>(</span><span class=s>&#34;/&#34;</span><span class=p>,</span> <span class=nx>home</span><span class=p>)</span>
+	<span class=nx>r</span><span class=p>.</span><span class=nf>HandleFunc</span><span class=p>(</span><span class=s>&#34;/upload&#34;</span><span class=p>,</span> <span class=nx>upload</span><span class=p>).</span><span class=nf>Methods</span><span class=p>(</span><span class=s>&#34;POST&#34;</span><span class=p>)</span>
+
+	<span class=nx>srv</span> <span class=o>:=</span> <span class=o>&amp;</span><span class=nx>http</span><span class=p>.</span><span class=nx>Server</span><span class=p>{</span>
+		<span class=nx>Handler</span><span class=p>:</span>      <span class=nx>r</span><span class=p>,</span>
+		<span class=nx>Addr</span><span class=p>:</span>         <span class=s>&#34;0.0.0.0:8080&#34;</span><span class=p>,</span>
+		<span class=nx>WriteTimeout</span><span class=p>:</span> <span class=mi>15</span> <span class=o>*</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>,</span>
+		<span class=nx>ReadTimeout</span><span class=p>:</span>  <span class=mi>15</span> <span class=o>*</span> <span class=nx>time</span><span class=p>.</span><span class=nx>Second</span><span class=p>,</span>
+	<span class=p>}</span>
+
+	<span class=nx>log</span><span class=p>.</span><span class=nf>Println</span><span class=p>(</span><span class=s>&#34;Starting application on &#34;</span> <span class=o>+</span> <span class=nx>srv</span><span class=p>.</span><span class=nx>Addr</span><span class=p>)</span>
+	<span class=nx>log</span><span class=p>.</span><span class=nf>Fatal</span><span class=p>(</span><span class=nx>srv</span><span class=p>.</span><span class=nf>ListenAndServe</span><span class=p>())</span>
+<span class=p>}</span>
+</code></pre></div><h3 id=usage>Usage</h3>
+<p>A simple way to utilize this <code>API</code> is with <a href=https://curl.se>curl</a>, example will be shown below.<br>
+It&rsquo;s of course possible to utlize a Rest client such as <a href=https://postman.com>Postman</a> etc.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-sh data-lang=sh>curl -X POST <span class=se>\ </span>                         
+&lt;url&gt; <span class=se>\
+</span><span class=se></span>-F <span class=nv>file</span><span class=o>=</span>@&lt;path_to_file&gt;
+</code></pre></div><h2 id=security-when-using-azure-storage>Security when using Azure Storage</h2>
+<p>Most cloud providers provide some sort of security when it comes to cloud storage, Azure gives users a possibilty to encrypt there storage with either secret keys, generated by Microsoft, or self uploaded once.<br>
+Which are utlized with help of <a href=https://azure.microsoft.com/en-us/services/key-vault/>Azure Key Vault</a>, where you can either upload own keys, or use generated once.<br>
+But not only that, <a href=https://azure.microsoft.com/en-us/services/key-vault/>Azure Key Vault</a> also lets you store SSL Certs and automate parts of the deployment process.<br>
+But when it comes to storage there is alot to think about, such as <em>where is the data stored</em>, <em>is the data transferd</em>, <em>is the data public</em> and much more.<br>
+So before you deploy Azure storage to a production environment please, think trough how you deploy it, if you are doing it wrong it can be a disaster.</p>
+<h2 id=pricing-for-an-example-app>Pricing for an example app</h2>
+<p>Let&rsquo;s say our app get popular, and we get around 1000 files between ~50-100MB <em>HUGE FILES</em> and they also get downloaded 3-5 times each per day. The price would be vary depending where you deploy and what type storage you want, but let&rsquo;s say we are deploying a <code>Premium performance Blob storage with 1TB Storage</code> that would priced around ~100$ Montlhy.</p>
+</article>
+</main><footer id=footer>
+Copyright © 2021 letnh
+</footer>
+</body>
+</html>
