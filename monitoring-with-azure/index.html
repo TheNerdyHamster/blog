@@ -1,0 +1,132 @@
+<!doctype html><html><head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<meta name=description content="LETNH Tech blog">
+<link rel="shortcut icon" href=https://blog.letnh.com/favicon.ico>
+<link rel=stylesheet href=/css/style.min.css>
+<title>Monitoring With Azure</title>
+</head>
+<body><header id=banner>
+<h2><a href=https://blog.letnh.com>LETNH - Blog</a></h2>
+<nav>
+<ul>
+<li>
+<a href=/ title=posts>posts</a>
+</li>
+</ul>
+</nav>
+</header>
+<main id=content>
+<article>
+<header id=post-header>
+<h1>Monitoring With Azure</h1>
+<div>
+<time>October 6, 2021</time>
+</div>
+</header><p>We will create a web app with Go, that&rsquo;s are connected to <a href=https://docs.microsoft.com/en-us/azure/azure-monitor/app/app-insights-overview>Azure Application Insights</a>.<br>
+I would recommend you follow <a href=https://blog.letnh.com/files-in-cloud/>Files In Cloud</a>, we will reuse some parts of the code from that post.</p>
+<h2 id=logging-with-azure-app-insight>Logging with Azure App Insight</h2>
+<p>To be written</p>
+<h2 id=implementation-with-go>Implementation with Go</h2>
+<p>Before we begin we will need to install <a href=https://github.com/Microsoft/ApplicationInsights-Go>ApplicationInsights-Go</a> which is a Go package made by Microsoft, to utilize Application Insights with Golang.</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>go get github.com/microsoft/ApplicationInsights-Go/appinsights
+</code></pre></div><p>Now if we start with the code.<br>
+First we setup a middleware that will capture, load performance and status codes etc.</p>
+<p>So what we are doing here is.</p>
+<ol>
+<li>Get current time.</li>
+<li>Register <code>lrw</code>.</li>
+<li>Serve the request.</li>
+<li>Calculate duration of request.</li>
+<li>Register <code>TelementryClient</code> and track the <code>RequestTelementry</code></li>
+</ol>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>type</span> <span class=nx>loggingResponseWriter</span> <span class=kd>struct</span> <span class=p>{</span>
+	<span class=nx>http</span><span class=p>.</span><span class=nx>ResponseWriter</span>
+	<span class=nx>statusCode</span> <span class=kt>int</span>
+<span class=p>}</span>
+
+<span class=kd>func</span> <span class=nf>NewLoggingResponseWriter</span><span class=p>(</span><span class=nx>w</span> <span class=nx>http</span><span class=p>.</span><span class=nx>ResponseWriter</span><span class=p>)</span> <span class=o>*</span><span class=nx>loggingResponseWriter</span> <span class=p>{</span>
+	<span class=k>return</span> <span class=o>&amp;</span><span class=nx>loggingResponseWriter</span><span class=p>{</span><span class=nx>w</span><span class=p>,</span> <span class=nx>http</span><span class=p>.</span><span class=nx>StatusOK</span><span class=p>}</span>
+<span class=p>}</span>
+
+<span class=kd>func</span> <span class=p>(</span><span class=nx>lrw</span> <span class=o>*</span><span class=nx>loggingResponseWriter</span><span class=p>)</span> <span class=nf>WriteHeader</span><span class=p>(</span><span class=nx>code</span> <span class=kt>int</span><span class=p>)</span> <span class=p>{</span>
+	<span class=nx>lrw</span><span class=p>.</span><span class=nx>statusCode</span> <span class=p>=</span> <span class=nx>code</span>
+	<span class=nx>lrw</span><span class=p>.</span><span class=nx>ResponseWriter</span><span class=p>.</span><span class=nf>WriteHeader</span><span class=p>(</span><span class=nx>code</span><span class=p>)</span>
+<span class=p>}</span>
+
+<span class=kd>func</span> <span class=nf>wrapHandlerWithLogging</span><span class=p>(</span><span class=nx>h</span> <span class=nx>http</span><span class=p>.</span><span class=nx>Handler</span><span class=p>)</span> <span class=nx>http</span><span class=p>.</span><span class=nx>Handler</span> <span class=p>{</span>
+	<span class=k>return</span> <span class=nx>http</span><span class=p>.</span><span class=nf>HandlerFunc</span><span class=p>(</span><span class=kd>func</span><span class=p>(</span><span class=nx>w</span> <span class=nx>http</span><span class=p>.</span><span class=nx>ResponseWriter</span><span class=p>,</span> <span class=nx>r</span> <span class=o>*</span><span class=nx>http</span><span class=p>.</span><span class=nx>Request</span><span class=p>)</span> <span class=p>{</span>
+		<span class=nx>startTime</span> <span class=o>:=</span> <span class=nx>time</span><span class=p>.</span><span class=nf>Now</span><span class=p>()</span>
+
+		<span class=nx>lrw</span> <span class=o>:=</span> <span class=nf>NewLoggingResponseWriter</span><span class=p>(</span><span class=nx>w</span><span class=p>)</span>
+		<span class=nx>h</span><span class=p>.</span><span class=nf>ServeHTTP</span><span class=p>(</span><span class=nx>lrw</span><span class=p>,</span> <span class=nx>r</span><span class=p>)</span>
+
+		<span class=nx>statusCode</span> <span class=o>:=</span> <span class=nx>lrw</span><span class=p>.</span><span class=nx>statusCode</span>
+
+		<span class=nx>duration</span> <span class=o>:=</span> <span class=nx>time</span><span class=p>.</span><span class=nf>Now</span><span class=p>().</span><span class=nf>Sub</span><span class=p>(</span><span class=nx>startTime</span><span class=p>)</span>
+		<span class=nx>client</span> <span class=o>:=</span> <span class=nx>appinsights</span><span class=p>.</span><span class=nf>NewTelemetryClient</span><span class=p>(</span><span class=nx>key</span><span class=p>)</span>
+		<span class=nx>trace</span> <span class=o>:=</span> <span class=nx>appinsights</span><span class=p>.</span><span class=nf>NewRequestTelemetry</span><span class=p>(</span><span class=nx>r</span><span class=p>.</span><span class=nx>Method</span><span class=p>,</span> <span class=nx>r</span><span class=p>.</span><span class=nx>URL</span><span class=p>.</span><span class=nx>Path</span><span class=p>,</span> <span class=nx>duration</span><span class=p>,</span> <span class=nx>strconv</span><span class=p>.</span><span class=nf>Itoa</span><span class=p>(</span><span class=nx>statusCode</span><span class=p>))</span>
+
+		<span class=nx>client</span><span class=p>.</span><span class=nf>Track</span><span class=p>(</span><span class=nx>trace</span><span class=p>)</span>
+	<span class=p>})</span>
+<span class=p>}</span>
+</code></pre></div><p>To catch exceptions and error that might return <code>500</code> or <code>Internal Server Error</code> or something simular, we create a error-handler.
+So what we are doing here is:</p>
+<ol>
+<li>Reigster TelementryClient.</li>
+<li>Create new Telementry.</li>
+<li>Send it to Azure.</li>
+<li>Return error to user.</li>
+</ol>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>func</span> <span class=nf>handleError</span><span class=p>(</span><span class=nx>w</span> <span class=nx>http</span><span class=p>.</span><span class=nx>ResponseWriter</span><span class=p>,</span> <span class=nx>err</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
+	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+		<span class=nx>client</span> <span class=o>:=</span> <span class=nx>appinsights</span><span class=p>.</span><span class=nf>NewTelemetryClient</span><span class=p>(</span><span class=nx>key</span><span class=p>)</span>
+
+		<span class=nx>trace</span> <span class=o>:=</span> <span class=nx>appinsights</span><span class=p>.</span><span class=nf>NewTraceTelemetry</span><span class=p>(</span><span class=nx>err</span><span class=p>.</span><span class=nf>Error</span><span class=p>(),</span> <span class=nx>appinsights</span><span class=p>.</span><span class=nx>Error</span><span class=p>)</span>
+		<span class=nx>trace</span><span class=p>.</span><span class=nx>Timestamp</span> <span class=p>=</span> <span class=nx>time</span><span class=p>.</span><span class=nf>Now</span><span class=p>()</span>
+
+		<span class=nx>client</span><span class=p>.</span><span class=nf>Track</span><span class=p>(</span><span class=nx>trace</span><span class=p>)</span>
+
+		<span class=nx>http</span><span class=p>.</span><span class=nf>Error</span><span class=p>(</span><span class=nx>w</span><span class=p>,</span> <span class=s>&#34;Internal Server Error&#34;</span><span class=p>,</span> <span class=nx>http</span><span class=p>.</span><span class=nx>StatusInternalServerError</span><span class=p>)</span>
+	<span class=p>}</span>
+<span class=p>}</span>
+</code></pre></div><p>Now to register these two within the application, we can just register our middleware with help of:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=nx>r</span> <span class=o>:=</span> <span class=nx>mux</span><span class=p>.</span><span class=nf>NewRouter</span><span class=p>()</span>
+
+<span class=nx>r</span><span class=p>.</span><span class=nf>Use</span><span class=p>(</span><span class=nx>wrapHandlerWithLogging</span><span class=p>)</span>
+</code></pre></div><p>When it comes to the error handler we can do:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=c1>// Old 
+</span><span class=c1></span><span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+  <span class=o>...</span><span class=nx>code</span><span class=p>..</span>
+<span class=p>}</span>
+
+<span class=c1>// New 
+</span><span class=c1></span><span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
+  <span class=nf>handleError</span><span class=p>(</span><span class=nx>w</span><span class=p>,</span> <span class=nx>err</span><span class=p>)</span>
+  <span class=k>return</span>
+<span class=p>}</span>
+
+</code></pre></div><h2 id=example-queries>Example queries</h2>
+<p>So now when we have an application that are talking to Application Insights.
+We can run some simple queries on the data.</p>
+<p>This query will create a Areachart that contains how many <code>404</code>, <code>500</code> status codes got recived overtime.</p>
+<pre tabindex=0><code>requests
+| where resultCode == 404 or resultCode == 500
+| summarize totalCount=sum(itemCount) by bin(timestamp, 30m)
+| render   areachart   
+</code></pre><p>This query is taken from there sample queries and can be built on, such as show it in a <code>areachart</code> or a <code>barchart</code>&mldr;
+But here we gather information about how many failed requests we had since start and how many users got impacted by it.<br>
+We could also fetch with in a time period if needed.</p>
+<pre tabindex=0><code>requests
+| where success == false
+| summarize failedCount=sum(itemCount), impactedUsers=dcount(user_Id) by operation_Name
+| order by failedCount desc
+</code></pre><h2 id=what-about-security>What about security</h2>
+<p>When implementing analystics or insights about your application it can both help you locate security breaches or stop them before it&rsquo;s to late. A simple example would be to check for DDoS attacks, if one gets dedicated an alert could be sent out to diffrent teams within the company, or events to be triggerd such as block IP X etc.<br>
+But analystics and insights could also be a problem for you application, if sensitive analystics gets into wrong hands, one easy way to prevent this is to only monitor stuff you really need.</p>
+</article>
+</main><footer id=footer>
+Copyright © 2021 letnh
+</footer>
+</body>
+</html>
