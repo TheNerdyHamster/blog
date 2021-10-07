@@ -9,7 +9,14 @@ I would recommend you follow [Files In Cloud](https://blog.letnh.com/files-in-cl
 
 
 ## Logging with Azure App Insight
-To be written
+![Basic illustration of how application insights gather data](/img/application-metrics-azure.png)
+With Application Insight you can give it data to analyze within two ways.
+- Via logs that Azure sends to Application Insight
+- Through a public-facing API, with help of either SDK or something similar  
+In this example, we will be using their Golang SDK: [ApplicationInsights-Go](https://github.com/Microsoft/ApplicationInsights-Go). This will let us provide Application Insight with what data we want it to process, which might let us sort out classified information which might be logged.  
+With help of Application Insight provided by Azure, we also gain everything from visualize the data, to send alerts and events to other systems, such as pagers...  
+
+There are also other alternatives to [Azure Application Insights](https://docs.microsoft.com/en-us/azure/azure-monitor/app/app-insights-overview), such as [OpenNMS](https://www.opennms.com/), and [Prometheus](https://prometheus.io/), which gather most information from devices either via metrics or logs.
 
 
 ## Implementation with Go
@@ -20,13 +27,13 @@ go get github.com/microsoft/ApplicationInsights-Go/appinsights
 ```
 
 Now if we start with the code.  
-First we setup a middleware that will capture, load performance and status codes etc.
+First, we set up a middleware that will capture, load performance and status codes, etc.
 
 So what we are doing here is.
 1. Get current time.
 2. Register `lrw`.
 3. Serve the request.
-4. Calculate duration of request.
+4. Calculate the duration of the request.
 5. Register `TelementryClient` and track the `RequestTelementry`
 ```go
 type loggingResponseWriter struct {
@@ -61,12 +68,12 @@ func wrapHandlerWithLogging(h http.Handler) http.Handler {
 }
 ```
 
-To catch exceptions and error that might return `500` or `Internal Server Error` or something simular, we create a error-handler.
+To catch exceptions and errors that might return `500` or `Internal Server Error` or something similar, we create an error handler.
 So what we are doing here is:
 1. Reigster TelementryClient.
-2. Create new Telementry.
+2. Create new Telemetry.
 3. Send it to Azure.
-4. Return error to user.
+4. Return error to the user.
 
 ```go
 func handleError(w http.ResponseWriter, err error) {
@@ -117,9 +124,9 @@ requests
 | render   areachart   
 ```
 
-This query is taken from there sample queries and can be built on, such as show it in a `areachart` or a `barchart`...
-But here we gather information about how many failed requests we had since start and how many users got impacted by it.  
-We could also fetch with in a time period if needed.
+This query is taken from their sample queries and can be built on, such as show it in an `area chart` or a `bar chart`...
+But here we gather information about how many failed requests we had since the start and how many users got impacted by it.  
+We could also fetch within a period of time if needed.
 ```
 requests
 | where success == false
@@ -128,6 +135,10 @@ requests
 ```
 
 ## What about security
-When implementing analystics or insights about your application it can both help you locate security breaches or stop them before it's to late. A simple example would be to check for DDoS attacks, if one gets dedicated an alert could be sent out to diffrent teams within the company, or events to be triggerd such as block IP X etc.  
-But analystics and insights could also be a problem for you application, if sensitive analystics gets into wrong hands, one easy way to prevent this is to only monitor stuff you really need.
+When implementing analytics or insights about your application it can both help you locate security breaches or stop them before it's too late. A simple example would be to check for DDoS attacks, if one gets dedicated an alert could be sent out to different teams within the company, or events to be triggered such as block IP X, etc.  
+But analytics and insights could also be a problem for your application, if sensitive analytics gets into the wrong hands, one easy way to prevent this is to only monitor stuff you need.
 
+
+## Revisions
+
+- October 6, 2021: Added section `Logging with Azure App Insight`
