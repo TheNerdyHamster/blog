@@ -26,18 +26,26 @@
 </header><p>We will create a web app with Go, that&rsquo;s are connected to <a href=https://docs.microsoft.com/en-us/azure/azure-monitor/app/app-insights-overview>Azure Application Insights</a>.<br>
 I would recommend you follow <a href=https://blog.letnh.com/files-in-cloud/>Files In Cloud</a>, we will reuse some parts of the code from that post.</p>
 <h2 id=logging-with-azure-app-insight>Logging with Azure App Insight</h2>
-<p>To be written</p>
+<p><img src=/img/application-metrics-azure.png alt="Basic illustration of how application insights gather data">
+With Application Insight you can give it data to analyze within two ways.</p>
+<ul>
+<li>Via logs that Azure sends to Application Insight</li>
+<li>Through a public-facing API, with help of either SDK or something similar<br>
+In this example, we will be using their Golang SDK: <a href=https://github.com/Microsoft/ApplicationInsights-Go>ApplicationInsights-Go</a>. This will let us provide Application Insight with what data we want it to process, which might let us sort out classified information which might be logged.<br>
+With help of Application Insight provided by Azure, we also gain everything from visualize the data, to send alerts and events to other systems, such as pagers&mldr;</li>
+</ul>
+<p>There are also other alternatives to <a href=https://docs.microsoft.com/en-us/azure/azure-monitor/app/app-insights-overview>Azure Application Insights</a>, such as <a href=https://www.opennms.com/>OpenNMS</a>, and <a href=https://prometheus.io/>Prometheus</a>, which gather most information from devices either via metrics or logs.</p>
 <h2 id=implementation-with-go>Implementation with Go</h2>
 <p>Before we begin we will need to install <a href=https://github.com/Microsoft/ApplicationInsights-Go>ApplicationInsights-Go</a> which is a Go package made by Microsoft, to utilize Application Insights with Golang.</p>
 <div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>go get github.com/microsoft/ApplicationInsights-Go/appinsights
 </code></pre></div><p>Now if we start with the code.<br>
-First we setup a middleware that will capture, load performance and status codes etc.</p>
+First, we set up a middleware that will capture, load performance and status codes, etc.</p>
 <p>So what we are doing here is.</p>
 <ol>
 <li>Get current time.</li>
 <li>Register <code>lrw</code>.</li>
 <li>Serve the request.</li>
-<li>Calculate duration of request.</li>
+<li>Calculate the duration of the request.</li>
 <li>Register <code>TelementryClient</code> and track the <code>RequestTelementry</code></li>
 </ol>
 <div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>type</span> <span class=nx>loggingResponseWriter</span> <span class=kd>struct</span> <span class=p>{</span>
@@ -70,13 +78,13 @@ First we setup a middleware that will capture, load performance and status codes
 		<span class=nx>client</span><span class=p>.</span><span class=nf>Track</span><span class=p>(</span><span class=nx>trace</span><span class=p>)</span>
 	<span class=p>})</span>
 <span class=p>}</span>
-</code></pre></div><p>To catch exceptions and error that might return <code>500</code> or <code>Internal Server Error</code> or something simular, we create a error-handler.
+</code></pre></div><p>To catch exceptions and errors that might return <code>500</code> or <code>Internal Server Error</code> or something similar, we create an error handler.
 So what we are doing here is:</p>
 <ol>
 <li>Reigster TelementryClient.</li>
-<li>Create new Telementry.</li>
+<li>Create new Telemetry.</li>
 <li>Send it to Azure.</li>
-<li>Return error to user.</li>
+<li>Return error to the user.</li>
 </ol>
 <div class=highlight><pre tabindex=0 class=chroma><code class=language-go data-lang=go><span class=kd>func</span> <span class=nf>handleError</span><span class=p>(</span><span class=nx>w</span> <span class=nx>http</span><span class=p>.</span><span class=nx>ResponseWriter</span><span class=p>,</span> <span class=nx>err</span> <span class=kt>error</span><span class=p>)</span> <span class=p>{</span>
 	<span class=k>if</span> <span class=nx>err</span> <span class=o>!=</span> <span class=kc>nil</span> <span class=p>{</span>
@@ -114,16 +122,20 @@ We can run some simple queries on the data.</p>
 | where resultCode == 404 or resultCode == 500
 | summarize totalCount=sum(itemCount) by bin(timestamp, 30m)
 | render   areachart   
-</code></pre><p>This query is taken from there sample queries and can be built on, such as show it in a <code>areachart</code> or a <code>barchart</code>&mldr;
-But here we gather information about how many failed requests we had since start and how many users got impacted by it.<br>
-We could also fetch with in a time period if needed.</p>
+</code></pre><p>This query is taken from their sample queries and can be built on, such as show it in an <code>area chart</code> or a <code>bar chart</code>&mldr;
+But here we gather information about how many failed requests we had since the start and how many users got impacted by it.<br>
+We could also fetch within a period of time if needed.</p>
 <pre tabindex=0><code>requests
 | where success == false
 | summarize failedCount=sum(itemCount), impactedUsers=dcount(user_Id) by operation_Name
 | order by failedCount desc
 </code></pre><h2 id=what-about-security>What about security</h2>
-<p>When implementing analystics or insights about your application it can both help you locate security breaches or stop them before it&rsquo;s to late. A simple example would be to check for DDoS attacks, if one gets dedicated an alert could be sent out to diffrent teams within the company, or events to be triggerd such as block IP X etc.<br>
-But analystics and insights could also be a problem for you application, if sensitive analystics gets into wrong hands, one easy way to prevent this is to only monitor stuff you really need.</p>
+<p>When implementing analytics or insights about your application it can both help you locate security breaches or stop them before it&rsquo;s too late. A simple example would be to check for DDoS attacks, if one gets dedicated an alert could be sent out to different teams within the company, or events to be triggered such as block IP X, etc.<br>
+But analytics and insights could also be a problem for your application, if sensitive analytics gets into the wrong hands, one easy way to prevent this is to only monitor stuff you need.</p>
+<h2 id=revisions>Revisions</h2>
+<ul>
+<li>October 6, 2021: Added section <code>Logging with Azure App Insight</code></li>
+</ul>
 </article>
 </main><footer id=footer>
 Copyright © 2021 letnh
