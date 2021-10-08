@@ -28,9 +28,9 @@ Today we will both cover what type of scaling methods exists, and how Azure Func
 We will utilize our action function written in <a href=https://blog.letnh.com/serverless-functions-with-jenkins/>Serverless Functions with Jenkins</a>, to stress this application we will utilize <a href=https://locust.io/>Locust</a> which is a Open Source load testing tool written in python, more on that later.</p>
 <h2 id=scaling>Scaling</h2>
 <h3 id=horizontal-scaling>Horizontal Scaling</h3>
-<p>Horizontal scaling is when</p>
+<p>Horizontal scaling is when we adding more <code>service</code> or <code>server</code> instaces to our &ldquo;infrastructure&rdquo; to offload other <code>services</code> or <code>servers</code>. A good technical example for this would be we have an web application that are getting alot of hits, so we to setup another instace of that container, which works just fine. But the problem here is that both servers have two diffrent IP Addresses, it&rsquo;s not possible for us to say to users which server to talk to. But here is were <code>loadbalancers</code> such as <a href=https://traefik.io/>Traefik</a>, <a href=https://nginx.org/en/>Nginx</a> etc, comes into the picture, so instead we set our servers behind a <code>reverse proxy</code> that supports loadbalancing, which from there will route users based by either round robin or other criterias.</p>
 <h3 id=vertical-scaling>Vertical Scaling</h3>
-<p>Vertical&mldr;</p>
+<p>Vertical scaling is when are instead adding more <em><code>power</code></em> to our hardware, such as more <code>RAM</code>, <code>CPU</code>, <code>Storage</code> etc. A good example of just vertical scaling is, let&rsquo;s say we have a <a href=https://opennms.com>OpenNMS</a> instace handling everything from monitoring all our network equipment but also every application we have deployed troughout or company. That will result in alot of <code>metrics</code> being written to hard drive per second, and when this happens we see that our <code>metrics servers</code> starts to slow down and we can locate that the problam is due to high R/W, so instead we buy a better <code>ssd</code> or <code>storage equipment</code> that can support much higher load and speed.</p>
 <h2 id=scaling-services-on-azure>Scaling services on Azure</h2>
 <h3 id=app-service>App Service</h3>
 <h3 id=virtual-machine>Virtual Machine</h3>
