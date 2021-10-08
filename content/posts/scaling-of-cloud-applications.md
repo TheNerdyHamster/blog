@@ -10,11 +10,10 @@ We will utilize our action function written in [Serverless Functions with Jenkin
 
 ## Scaling
 ### Horizontal Scaling
-Horizontal scaling is when 
-
+Horizontal scaling is when we adding more `service` or `server` instaces to our "infrastructure" to offload other `services` or `servers`. A good technical example for this would be we have an web application that are getting alot of hits, so we to setup another instace of that container, which works just fine. But the problem here is that both servers have two diffrent IP Addresses, it's not possible for us to say to users which server to talk to. But here is were `loadbalancers` such as [Traefik](https://traefik.io/), [Nginx](https://nginx.org/en/) etc, comes into the picture, so instead we set our servers behind a `reverse proxy` that supports loadbalancing, which from there will route users based by either round robin or other criterias. 
 
 ### Vertical Scaling
-Vertical...
+Vertical scaling is when are instead adding more _`power`_ to our hardware, such as more `RAM`, `CPU`, `Storage` etc. A good example of just vertical scaling is, let's say we have a [OpenNMS](https://opennms.com) instace handling everything from monitoring all our network equipment but also every application we have deployed troughout or company. That will result in alot of `metrics` being written to hard drive per second, and when this happens we see that our `metrics servers` starts to slow down and we can locate that the problam is due to high R/W, so instead we buy a better `ssd` or `storage equipment` that can support much higher load and speed. 
 
 ## Scaling services on Azure
 
