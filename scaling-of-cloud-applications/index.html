@@ -23,19 +23,176 @@
 <div>
 <time>October 8, 2021</time>
 </div>
-</header><p>One topic we haven&rsquo;t coverd yet is <code>scaling of cloud applications</code>. Platforms such as AWS, Azure, and GCP supports scaling on some of their products, which we will cover later. When utilizing a cloud service provider that supports either <code>Horizontal Scaling</code> or <code>Vertical Scaling</code> it should be utilized but only if they are needed.<br>
+</header><p>One topic we haven&rsquo;t covered yet is <code>scaling of cloud applications</code>. Platforms such as AWS, Azure, and GCP supports scaling on some of their products, which we will cover later. When utilizing a cloud service provider that supports either <code>Horizontal Scaling</code> or <code>Vertical Scaling</code> it should be utilized but only if they are needed.<br>
 Today we will both cover what type of scaling methods exists, and how Azure Functions might scale for you.
-We will utilize our action function written in <a href=https://blog.letnh.com/serverless-functions-with-jenkins/>Serverless Functions with Jenkins</a>, to stress this application we will utilize <a href=https://locust.io/>Locust</a> which is a Open Source load testing tool written in python, more on that later.</p>
+We will utilize our action function written in <a href=https://blog.letnh.com/serverless-functions-with-jenkins/>Serverless Functions with Jenkins</a>, to stress this application we will utilize <a href=https://locust.io/>Locust</a> which is an Open Source load testing tool written in python, more on that later.</p>
 <h2 id=scaling>Scaling</h2>
 <h3 id=horizontal-scaling>Horizontal Scaling</h3>
-<p>Horizontal scaling is when we adding more <code>service</code> or <code>server</code> instaces to our &ldquo;infrastructure&rdquo; to offload other <code>services</code> or <code>servers</code>. A good technical example for this would be we have an web application that are getting alot of hits, so we to setup another instace of that container, which works just fine. But the problem here is that both servers have two diffrent IP Addresses, it&rsquo;s not possible for us to say to users which server to talk to. But here is were <code>loadbalancers</code> such as <a href=https://traefik.io/>Traefik</a>, <a href=https://nginx.org/en/>Nginx</a> etc, comes into the picture, so instead we set our servers behind a <code>reverse proxy</code> that supports loadbalancing, which from there will route users based by either round robin or other criterias.</p>
+<p>Horizontal scaling is when we adding more <code>service</code> or <code>server</code> instances to our &ldquo;infrastructure&rdquo; to offload other <code>services</code> or <code>servers</code>. A good technical example for this would be we have a web application that is getting a lot of hits, so we set up another instance of that container, which works just fine. But the problem here is that both servers have two different IP Addresses, it&rsquo;s not possible for us to say to users which server to talk to. But here is where <code>load balancers</code> such as <a href=https://traefik.io/>Traefik</a>, <a href=https://nginx.org/en/>Nginx</a>, etc, comes into the picture, so instead we set our servers behind a <code>reverse proxy</code> that supports load balancing, which from there will route users based by either round-robin or other criteria.</p>
 <h3 id=vertical-scaling>Vertical Scaling</h3>
-<p>Vertical scaling is when are instead adding more <em><code>power</code></em> to our hardware, such as more <code>RAM</code>, <code>CPU</code>, <code>Storage</code> etc. A good example of just vertical scaling is, let&rsquo;s say we have a <a href=https://opennms.com>OpenNMS</a> instace handling everything from monitoring all our network equipment but also every application we have deployed troughout or company. That will result in alot of <code>metrics</code> being written to hard drive per second, and when this happens we see that our <code>metrics servers</code> starts to slow down and we can locate that the problam is due to high R/W, so instead we buy a better <code>ssd</code> or <code>storage equipment</code> that can support much higher load and speed.</p>
+<p>Vertical scaling is when are instead adding more <em><code>power</code></em> to our hardware, such as more <code>RAM</code>, <code>CPU</code>, <code>Storage</code> etc. A good example of just vertical scaling. Is let&rsquo;s say we have a <a href=https://opennms.com>OpenNMS</a> instance handling everything from monitoring all our network equipment, but also every application we have deployed throughout our company. That will result in a lot of <code>metrics</code> being written to hard drive per second, and when this happens we see that our <code>metrics servers</code> starts to slow down and we can locate that the problem is due to high R/W, so instead we buy a better <code>ssd</code> or <code>storage equipment</code> that can support the much higher load and speed.</p>
 <h2 id=scaling-services-on-azure>Scaling services on Azure</h2>
+<p><em>Info about each server/service</em></p>
+<ul>
+<li>Hosted in: North Europe</li>
+<li>OS: Linux</li>
+</ul>
 <h3 id=app-service>App Service</h3>
+<h4 id=vertical-scalning>Vertical scalning</h4>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Instace type</th>
+<th>Instances</th>
+<th>Price/Month</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Premium V2</td>
+<td>P1V2: 1 Cores(s), 3.5 GB RAM, 250 GB Storage</td>
+<td>1</td>
+<td>81.03$</td>
+</tr>
+<tr>
+<td>Premium V2</td>
+<td>P1V2: 1 Cores(s), 3.5 GB RAM, 250 GB Storage</td>
+<td>2</td>
+<td>162.06$</td>
+</tr>
+<tr>
+<td>Premium V2</td>
+<td>P1V2: 1 Cores(s), 3.5 GB RAM, 250 GB Storage</td>
+<td>4</td>
+<td>324.12$</td>
+</tr>
+</tbody>
+</table>
+<h4 id=horizontal-scalning>Horizontal scalning</h4>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Instace type</th>
+<th>Instances</th>
+<th>Price/Month</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Premium V2</td>
+<td>P1V2: 1 Cores(s), 3.5 GB RAM, 250 GB Storage</td>
+<td>1</td>
+<td>81.03$</td>
+</tr>
+<tr>
+<td>Premium V2</td>
+<td>P1V2: 2 Cores(s), 7 GB RAM, 250 GB Storage</td>
+<td>1</td>
+<td>161.33$</td>
+</tr>
+<tr>
+<td>Premium V2</td>
+<td>P1V2: 4 Cores(s), 14 GB RAM, 250 GB Storage</td>
+<td>1</td>
+<td>322.66$</td>
+</tr>
+</tbody>
+</table>
 <h3 id=virtual-machine>Virtual Machine</h3>
+<h4 id=vertical-scalning-1>Vertical scalning</h4>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Instace type</th>
+<th>Instances</th>
+<th>Price/Month</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Standard</td>
+<td>A1: 1 Cores, 1.75 GB RAM, 70 GB Temporary storage</td>
+<td>1</td>
+<td>43.85$</td>
+</tr>
+<tr>
+<td>Standard</td>
+<td>A1: 1 Cores, 1.75 GB RAM, 70 GB Temporary storage</td>
+<td>2</td>
+<td>87.60$</td>
+</tr>
+<tr>
+<td>Standard</td>
+<td>A1: 1 Cores, 1.75 GB RAM, 70 GB Temporary storage</td>
+<td>4</td>
+<td>175.20$</td>
+</tr>
+</tbody>
+</table>
+<h4 id=horizontal-scalning-1>Horizontal scalning</h4>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Instace type</th>
+<th>Instances</th>
+<th>Price/Month</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Standard</td>
+<td>A1: 1 Cores, 1.75 GB RAM, 70 GB Temporary storage</td>
+<td>1</td>
+<td>43.85$</td>
+</tr>
+<tr>
+<td>Standard</td>
+<td>A1: 2 Cores, 3 GB RAM, 135 GB Temporary storage</td>
+<td>1</td>
+<td>87.60$</td>
+</tr>
+<tr>
+<td>Standard</td>
+<td>A1: 4 Cores, 7 GB RAM, 285 GB Temporary storage</td>
+<td>1</td>
+<td>175.25$</td>
+</tr>
+</tbody>
+</table>
+<h3 id=result>Result</h3>
+<p>One thing we can see after comparing the pricing for both horizontal and vertical scaling is that there is almost no difference between them, which sounds pretty fair.<br>
+But it might not always be like that, due to cloud service providers deploy your &ldquo;services&rdquo; within a virtual environment which makes it easier for them to define exact specs and match the price for each scaling method.<br>
+But if we would go out and buy &ldquo;real&rdquo; hardware, because it might not be easy to just perform an update on &ldquo;CPU&rdquo;, &ldquo;RAM&rdquo; etc, without needing other parts, one important cost here is also the maintenance guys that will also cost money.</p>
 <h2 id=example-with-locust>Example with Locust</h2>
-<p><img src=/img/locust-total-requsts.png alt="Locust Total Requests Graph">
+<p><a href=https://locust.io/>Locust</a>, is pretty simple and convenient for both advanced and simple load testing of `web services.<br>
+Liked I mentioned earlier we will be using <a href=https://blog.letnh.com/serverless-functions-with-jenkins/>Serverless Functions with Jenkins</a>, as an example for demonstrating Locust.<br>
+To begin with we need to install Locust with:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>$ pip3 install locust
+</code></pre></div><p>Then we create a simple <code>locustfile.py</code>, which can be seen as a <code>configuration</code> file or <code>definition</code> how to load test our application.
+<em>We won&rsquo;t cover how to write a <code>locustfile.py</code> please read more <a href=https://docs.locust.io/en/stable/writing-a-locustfile.html>here</a></em></p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-py data-lang=py><span class=kn>import</span> <span class=nn>random</span>
+<span class=kn>from</span> <span class=nn>locust</span> <span class=kn>import</span> <span class=n>HttpUser</span><span class=p>,</span> <span class=n>task</span>
+
+<span class=k>class</span> <span class=nc>CalcStressTesting</span><span class=p>(</span><span class=n>HttpUser</span><span class=p>):</span>
+    <span class=nd>@task</span>
+    <span class=k>def</span> <span class=nf>stress_calc</span><span class=p>(</span><span class=bp>self</span><span class=p>):</span>
+        <span class=n>x</span> <span class=o>=</span> <span class=n>random</span><span class=o>.</span><span class=n>randint</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span> <span class=mi>100000</span><span class=p>)</span> 
+        <span class=n>y</span> <span class=o>=</span> <span class=n>random</span><span class=o>.</span><span class=n>randint</span><span class=p>(</span><span class=mi>1</span><span class=p>,</span> <span class=mi>100000</span><span class=p>)</span> 
+        <span class=bp>self</span><span class=o>.</span><span class=n>client</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=sa>f</span><span class=s2>&#34;/api/calc?first=</span><span class=si>{</span><span class=n>x</span><span class=si>}</span><span class=s2>&amp;second=</span><span class=si>{</span><span class=n>y</span><span class=si>}</span><span class=s2>&#34;</span><span class=p>)</span>
+        <span class=bp>self</span><span class=o>.</span><span class=n>client</span><span class=o>.</span><span class=n>get</span><span class=p>(</span><span class=s2>&#34;/api/calc&#34;</span><span class=p>)</span>
+</code></pre></div><p>Now when we have our load test definition defined we can run:</p>
+<div class=highlight><pre tabindex=0 class=chroma><code class=language-bash data-lang=bash>$ locust
+</code></pre></div><h3 id=result-1>Result</h3>
+<h4 id=total-requests-per-second>Total requests per second</h4>
+<p>This graph just shows how many requests were made to our <code>endpoint</code> per second. By itself, we can&rsquo;t read anything out of it. But if we combine it with <code>Response time</code> we can come to some conclusions.
+<img src=/img/locust-total-requsts.png alt="Locust Total Requests Graph"></p>
+<h4 id=response-time>Response time</h4>
+<p>Like I mentioned on the <code>Total requests graph</code>, this graph might be useful, but we need to have another datapoint to compare with.<br>
+But if we combined both <code>Response Time</code> with <code>Total Requests</code> we can &ldquo;kinda&rdquo; come to some conclusions. Such as the more requests we get the higher response time we will get.
 <img src=/img/locust-response-time.png alt="Locust Response Time Graph"></p>
 </article>
 </main><footer id=footer>
